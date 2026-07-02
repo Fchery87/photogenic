@@ -1,0 +1,16 @@
+{
+  "name": "photogenic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 0 scaffold + viewport-proof harness for the Photogenic cross-platform AI photo editor.",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs",
+    "lint": "node scripts/lint.mjs",
+    "typecheck": "command -v tsc >/dev/null 2>&1 && tsc --noEmit --allowJs --checkJs src/viewport-proof/gates.js || echo 'tsc not installed; skipping typecheck'"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Photogenic — Phase 0 Viewport Proof</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+      body { margin: 0; background: #111; color: #eee; }
+      main { max-width: 720px; margin: 0 auto; padding: 24px; }
+      h1 { font-size: 1.2rem; }
+      .gate { display: flex; justify-content: space-between; padding: 6px 10px;
+              border: 1px solid #333; border-radius: 6px; margin: 6px 0; }
+      .pass { color: #6ee7b7; } .todo { color: #fbbf24; }
+      #verdict { margin-top: 16px; padding: 10px; border-radius: 6px;
+                 background: #1c1c1c; border: 1px solid #333; }
+      canvas { width: 100%; height: 160px; border: 1px solid #333; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Photogenic · Phase 0 Viewport Proof (ADR-0004)</h1>
+      <p>The gradient below is a <strong>2D-canvas placeholder</strong> — it does
+      NOT exercise the GPU→webview path, so it does <strong>not</strong> count as the
+      real gradient gate (ADR-0004). All ladder gates stay UNPROVEN until a real shell
+      measures them; the shell decision stays provisional.</p>
+      <canvas id="gradient" width="640" height="160"></canvas>
+      <div id="gates"></div>
+      <div id="verdict"></div>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
