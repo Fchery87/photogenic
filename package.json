@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Phase 0 scaffold + viewport-proof harness for the Photogenic cross-platform AI photo editor.",
+  "description": "Phase 0 scaffold + foundation seams for the Photogenic cross-platform AI photo editor.",
   "scripts": {
     "test": "node --test",
     "build": "node scripts/build.mjs",
     "lint": "node scripts/lint.mjs",
-    "typecheck": "command -v tsc >/dev/null 2>&1 && tsc --noEmit --allowJs --checkJs src/viewport-proof/gates.js || echo 'tsc not installed; skipping typecheck'"
+    "typecheck": "command -v tsc >/dev/null 2>&1 && tsc --noEmit --allowJs --checkJs src/**/*.js test/**/*.js || echo 'tsc not installed; skipping typecheck'",
+    "tauri:attempt": "node scripts/tauri-attempt.mjs"
   },
   "engines": {
     "node": ">=20"
