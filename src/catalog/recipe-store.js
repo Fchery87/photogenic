@@ -6,10 +6,11 @@ const STORE_FORMAT_VERSION = 1;
 const emptyStore = () => ({ version: STORE_FORMAT_VERSION, images: {} });
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const nowIso = () => new Date().toISOString();
+function normalizeEntry(imageId, entry) { const recipe = normalizeRecipe(entry.recipe); return { imageId, recipe, recipeFingerprint: recipeFingerprint(recipe), revision: Number.isInteger(entry.revision) ? entry.revision : 0, updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : nowIso(), sidecarPath: entry.sidecarPath ?? null }; }
 export async function createCatalogRecipeStore({ path, clock = nowIso }) {
   if (typeof path !== "string" || !path) throw new TypeError("path is required");
   async function loadStore() {
-    try { const parsed = JSON.parse(await readFile(path, "utf8")); if (parsed.version !== STORE_FORMAT_VERSION || !parsed.images) throw new RangeError("unsupported catalog store version"); return parsed; }
+    try { const parsed = JSON.parse(await readFile(path, "utf8")); if (parsed.version !== STORE_FORMAT_VERSION || !parsed.images) throw new RangeError("unsupported catalog store version"); const images = {}; for (const [imageId, entry] of Object.entries(parsed.images)) images[imageId] = normalizeEntry(imageId, entry); return { version: STORE_FORMAT_VERSION, images }; }
     catch (error) { if (error && error.code === "ENOENT") return emptyStore(); throw error; }
   }
   async function saveStore(store) { await mkdir(dirname(path), { recursive: true }); await writeFile(path, JSON.stringify(store, null, 2) + "\n", "utf8"); }
