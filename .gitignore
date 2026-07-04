@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.log
 .pi-subagents/artifacts/
+.harness/
+src-tauri/target/
+src-tauri/gen/schemas/
