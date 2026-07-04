@@ -1,0 +1,14 @@
+
+> photogenic@0.0.0 tauri:dev
+> npx @tauri-apps/cli@2.11.4 dev
+
+     Running BeforeDevCommand (`npm run build`)
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching /home/nochaserz/Documents/Coding Projects/photogenic/src-tauri for changes...
+
+> photogenic@0.0.0 build
+> node scripts/build.mjs
+
+build ok -> dist/ (entry: app/index.html)
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 3.08s
+[1m[92m     Running[0m `target/debug/app`

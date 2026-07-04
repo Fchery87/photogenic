@@ -57,5 +57,7 @@ Do not commit generated outputs:
 ## Current State
 The real `src-tauri/` scaffold is committed, `npm run tauri:dev` launches the Tauri shell locally, and the browser harness still builds and loads through that shell while the viewport verdict remains provisional until genuine measurements are wired in.
 
+Captured verification artifact: `.scratch/photogenic-foundation/verification/issue01-tauri-dev.log` (contains `Running `target/debug/app`` evidence from a local `npm run tauri:dev` launch).
+
 ## Environment Note
 This automated repo environment may still lack Cargo/Rust, so it can prepare scripts/docs and validate JS-side checks but may not be able to relaunch the Tauri runtime itself.
