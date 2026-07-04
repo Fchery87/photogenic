@@ -37,7 +37,7 @@ The product currently has a browser harness and a shell-agnostic viewport-proof 
 - `npm test`
 - `npm run build`
 - `npm run tauri:attempt`
-- once `src-tauri/` is restored or regenerated: `npm run tauri:dev`
+- `npm run tauri:dev`
 
 ## Expected Commit Set
 When the real scaffold is present, commit the source/config subset:
@@ -55,7 +55,7 @@ Do not commit generated outputs:
 - `src-tauri/gen/schemas/`
 
 ## Current State
-Cargo/Tauri are now available on the target machine, and the next execution step is to review the generated `src-tauri/` scaffold, verify the harness loads inside Tauri, and then commit the file set above.
+The real `src-tauri/` scaffold is committed, `npm run tauri:dev` launches the Tauri shell locally, and the browser harness still builds and loads through that shell while the viewport verdict remains provisional until genuine measurements are wired in.
 
 ## Environment Note
 This automated repo environment may still lack Cargo/Rust, so it can prepare scripts/docs and validate JS-side checks but may not be able to relaunch the Tauri runtime itself.
