@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "operations": [
+    { "type": "exposure", "params": { "ev": 0.35 } },
+    { "type": "contrast", "params": { "amount": 12 } },
+    { "type": "temperature", "params": { "kelvinDelta": 200 } }
+  ],
+  "meta": {
+    "label": "fixture-basic-develop"
+  }
+}

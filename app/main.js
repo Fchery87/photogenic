@@ -1,6 +1,7 @@
+import { createRecipe } from "../src/edit-recipe/recipe.js";
+import { createPreviewFoundation } from "../src/preview/foundation.js";
 import { GATE_LADDER, evaluateViewportProof } from "../src/viewport-proof/gates.js";
 
-// Draw the gradient — this proves ONLY the first gate (ADR-0004).
 function drawGradient(canvas) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return false;
@@ -12,13 +13,29 @@ function drawGradient(canvas) {
   return true;
 }
 
-// IMPORTANT (ADR-0004): this harness draws a gradient with the 2D canvas, which
-// does NOT exercise the GPU-texture->webview compositing path that the real
-// gradient gate requires. So we deliberately DO NOT report the `gradient` gate as
-// passed here — a 2D fill must never masquerade as the GPU gradient gate.
-// The remaining gates are intentionally UNPROVEN until a real shell measures them.
 function collectResults(_gradientDrawn) {
-  return []; // no ladder gate is genuinely proven by a 2D-canvas placeholder
+  return [];
+}
+
+function renderPreviewFoundation(canvas) {
+  const foundation = createPreviewFoundation({ clock: () => "2025-07-01T00:00:00.000Z" });
+  const request = foundation.createRequest({
+    source: {
+      imageId: "harness-preview",
+      width: canvas.width,
+      height: canvas.height,
+      revision: "phase0-placeholder",
+      colorSpace: "scene-linear",
+    },
+    recipe: createRecipe(),
+    viewport: { width: canvas.width, height: canvas.height },
+  });
+  const resolved = foundation.fulfillRequest(request);
+  document.getElementById("preview-status").innerHTML = `
+    <div class="gate"><span>proxyKey</span><span>${resolved.proxy.proxyKey.slice(0, 12)}…</span></div>
+    <div class="gate"><span>requestStatus</span><span class="pass">${resolved.status.toUpperCase()}</span></div>
+    <div class="gate"><span>behaviorSignature</span><span>${resolved.previewArtifact.behaviorSignature.slice(0, 12)}…</span></div>
+  `;
 }
 
 function render() {
@@ -39,6 +56,8 @@ function render() {
 
   document.getElementById("verdict").textContent =
     `${verdict.shellDecisionUnlocked ? "UNLOCKED" : "PROVISIONAL"} — ${verdict.reason}`;
+
+  renderPreviewFoundation(canvas);
 }
 
 render();
