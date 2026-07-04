@@ -1,6 +1,11 @@
 # Issue 01 — Phase 0 Tauri shell attempt around the viewport-proof harness
 
-Status: ready-for-agent
+Status: done
+
+## Completion Note
+- Real `src-tauri/` scaffold committed
+- Harness verified to build and launch through Tauri on a Cargo-capable machine
+- Workflow scripts and app identifier pinned/cleaned up
 
 ## Goal
 Host the existing Phase 0 viewport-proof harness inside a real Tauri shell without weakening ADR-0004 honesty constraints.
