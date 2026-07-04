@@ -5,6 +5,10 @@ Cross-platform, AI-assisted photo editor (see `ARCHITECTURE.md` and `docs/adr/`)
 ## Current implementation slices
 - Phase 0 viewport-proof contract + browser harness
 - Edit Recipe + Catalog foundation seam
+- Sidecar roundtrip + conflict-policy seam
+- Preset + Batch Sync persistence/apply seam
+- Deterministic preview/proxy + preview/export parity foundation seam
+- Local License vs cloud Credit entitlement seam
 - Ordered local issue breakdown in `.scratch/photogenic-foundation/issues/`
 - Tauri workflow prep via `npm run tauri:attempt`, `npm run tauri:dev`, and `npm run tauri:build`
 
