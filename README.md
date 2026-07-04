@@ -6,8 +6,25 @@ Cross-platform, AI-assisted photo editor (see `ARCHITECTURE.md` and `docs/adr/`)
 - Phase 0 viewport-proof contract + browser harness
 - Edit Recipe + Catalog foundation seam
 - Ordered local issue breakdown in `.scratch/photogenic-foundation/issues/`
+- Tauri workflow prep via `npm run tauri:attempt`, `npm run tauri:dev`, and `npm run tauri:build`
+
+## Tauri shell next step
+On a Cargo-capable machine, restore or regenerate the real `src-tauri/` scaffold and commit the source/config subset:
+- `src-tauri/.gitignore`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/build.rs`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/capabilities/default.json`
+- `src-tauri/src/**/*.rs`
+- `src-tauri/icons/*`
+
+Keep generated outputs ignored and out of commits:
+- `src-tauri/target/`
+- `src-tauri/gen/schemas/`
 
 ## Scope honesty
-- `cargo` / `rustc` are unavailable here, so a real Tauri shell cannot be built in this environment.
-- `npm run tauri:attempt` performs an honest blocked preflight instead of pretending slice 1 is complete.
+- In this repo checkout, the real `src-tauri/` scaffold is now present as untracked/generated project files on the local machine and should be reviewed before commit.
+- `npm run tauri:attempt` is the honesty gate for whether the local machine can actually run Tauri work.
+- `npm run tauri:dev` and `npm run tauri:build` are the standard workflow once the scaffold is present.
 - The browser harness gradient remains a placeholder and does not count as the real GPU→webview gate from ADR-0004.

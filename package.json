@@ -9,7 +9,9 @@
     "build": "node scripts/build.mjs",
     "lint": "node scripts/lint.mjs",
     "typecheck": "command -v tsc >/dev/null 2>&1 && tsc --noEmit --allowJs --checkJs src/**/*.js test/**/*.js || echo 'tsc not installed; skipping typecheck'",
-    "tauri:attempt": "node scripts/tauri-attempt.mjs"
+    "tauri:attempt": "node scripts/tauri-attempt.mjs",
+    "tauri:dev": "npx @tauri-apps/cli@latest dev",
+    "tauri:build": "npx @tauri-apps/cli@latest build"
   },
   "engines": {
     "node": ">=20"

@@ -32,7 +32,25 @@ The product currently has a browser harness and a shell-agnostic viewport-proof 
 - `npm test`
 - `npm run build`
 - `npm run tauri:attempt`
-- if the toolchain exists: the minimal Tauri launch command for the scaffold
+- once `src-tauri/` is restored or regenerated: `npm run tauri:dev`
 
-## Current Blocker
-This machine does not currently have `cargo` or `rustc`, so actual Tauri scaffolding cannot be completed here yet.
+## Expected Commit Set
+When the real scaffold is present, commit the source/config subset:
+- `src-tauri/.gitignore`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/build.rs`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/capabilities/default.json`
+- `src-tauri/src/**/*.rs`
+- `src-tauri/icons/*`
+
+Do not commit generated outputs:
+- `src-tauri/target/`
+- `src-tauri/gen/schemas/`
+
+## Current State
+Cargo/Tauri are now available on the target machine, and the next execution step is to review the generated `src-tauri/` scaffold, verify the harness loads inside Tauri, and then commit the file set above.
+
+## Environment Note
+This automated repo environment may still lack Cargo/Rust, so it can prepare scripts/docs and validate JS-side checks but may not be able to relaunch the Tauri runtime itself.
