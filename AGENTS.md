@@ -10,7 +10,7 @@ Issues and PRDs are tracked as **local markdown** files under `.scratch/<feature
 
 ### Triage labels
 
-Uses the **canonical** five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded on each issue's `Status:` line. See `docs/agents/triage-labels.md`.
+Uses the local-markdown tracker `Status:` line for both triage and completion state. Active workflow statuses are `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`; completed work is recorded as `done`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
