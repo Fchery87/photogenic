@@ -1,0 +1,38 @@
+# Issue 15 — Cross-platform alpha packaging
+
+Status: ready-for-agent
+
+## Goal
+Prepare the internal alpha for Windows, macOS, and Linux verification with platform smoke scripts, Tauri packaging, and a final acceptance artifact.
+
+## In Scope
+- Platform smoke script that checks Tauri availability, Pipeline capabilities, import, Cull, develop, Preset, Batch Sync, export, License, and viewport proof summary.
+- JSON smoke reports under `.scratch/photogenic-foundation/verification/` for each tested platform.
+- Tauri packaging configuration for internal alpha bundles.
+- Internal alpha runbook covering macOS, Windows, Linux, GPU/CPU fallback expectations, and report locations.
+- Final acceptance artifact recording commit SHA, platform, viewport status, Pipeline mode, export outputs, License status, and known limitations.
+- Tracker status updates to `done` only after acceptance criteria are actually met.
+
+## Out of Scope
+- Public launch release process.
+- Final notarization credentials, production update channels, or marketplace distribution.
+- Claiming cross-platform support without smoke evidence.
+
+## Acceptance Criteria
+- Smoke script emits explicit pass/fail fields for each alpha-critical workflow.
+- Smoke script confirms `import -> Cull -> develop -> Preset -> Batch Sync -> export` works offline under a valid local License.
+- Local platform smoke report is written to the expected verification path.
+- Packaging runbook documents macOS, Windows, and Linux build expectations.
+- Tauri bundle command completes locally or fails with a documented missing system dependency.
+- Final acceptance run covers tests, builds, native tests, smoke, packaging, and viewport decision status.
+- Cross-platform smoke reports exist for Windows, macOS, and Linux before marking the issue done.
+
+## Verification
+- `npm test -- test/internal-alpha-smoke.test.js`
+- `npm run smoke:alpha`
+- `npm run tauri:build`
+- `npm test`
+- `npm run build`
+- `npm run lint`
+- `npm run typecheck`
+- `cargo test --manifest-path src-tauri/Cargo.toml`
