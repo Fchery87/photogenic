@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "operations": [
+    {
+      "type": "exposure",
+      "params": {
+        "ev": 0.75
+      }
+    }
+  ],
+  "meta": {
+    "label": "Basic exposure"
+  }
+}

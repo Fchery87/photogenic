@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "operations": [
+    {
+      "type": "crop",
+      "params": {
+        "x": 0.1,
+        "y": 0.2,
+        "width": 0.8,
+        "height": 0.7
+      }
+    }
+  ],
+  "meta": {
+    "label": "Source dependent crop"
+  }
+}
