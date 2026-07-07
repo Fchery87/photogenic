@@ -45,7 +45,7 @@ impl fmt::Display for DecodeError {
 
 impl Error for DecodeError {}
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DecodedSource {
     source_path: PathBuf,
     format: ImageFormat,
