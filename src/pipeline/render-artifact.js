@@ -18,6 +18,15 @@ function normalizeSource(source) {
   };
 }
 
+function renderSourceIdentity(source) {
+  const normalizedSource = normalizeSource(source);
+  return {
+    imageId: normalizedSource.imageId,
+    path: normalizedSource.path,
+    revision: normalizedSource.revision,
+  };
+}
+
 export function computeBehaviorSignature({ source, recipe }) {
   const normalizedSource = normalizeSource(source);
   const normalizedRecipe = normalizeRecipe(recipe);
@@ -49,6 +58,7 @@ export function buildRenderArtifact({
     artifactVersion: RENDER_ARTIFACT_VERSION,
     mode,
     imageId: normalizedSource.imageId,
+    sourceIdentity: renderSourceIdentity(normalizedSource),
     dimensions: { width: normalizedSource.width, height: normalizedSource.height },
     colorSpace: normalizedSource.colorSpace,
     recipeFingerprint: recipeFingerprint(normalizedRecipe),

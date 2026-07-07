@@ -7,8 +7,10 @@ import assert from "node:assert/strict";
 import { createPreviewFoundation } from "../src/preview/foundation.js";
 import { createPreviewWorkflow } from "../src/preview/workflow.js";
 import { createExportFoundation } from "../src/export/foundation.js";
+import { createNativePipelineAdapter } from "../src/pipeline/native-adapter.js";
 
 const fixtureDir = path.join(process.cwd(), "test", "fixtures", "parity");
+const goldenDir = path.join(process.cwd(), "test", "fixtures", "golden");
 
 async function loadFixtures() {
   const source = JSON.parse(await readFile(path.join(fixtureDir, "source-001.json"), "utf8"));
@@ -64,21 +66,43 @@ test("preview and export artifacts share the same external behavior signature fo
 });
 
 
-test("preview cache png bytes and png export companion bytes stay identical when source recipe and dimensions match", async () => {
+test("preview and export call the same native pipeline command and preserve pixel identity", async () => {
   const { source, recipe } = await loadFixtures();
   const dir = await mkdtemp(path.join(tmpdir(), "photogenic-parity-png-"));
+  const goldenPreviewBytes = await readFile(path.join(goldenDir, "exposure-preview.png"));
+  const goldenExportBytes = await readFile(path.join(goldenDir, "exposure-export.png"));
+  const calls = [];
+  const nativePipeline = createNativePipelineAdapter({
+    invoke: async (command, request) => {
+      calls.push({ command, request });
+      const payload = request.mode === "preview" ? goldenPreviewBytes : goldenExportBytes;
+      return {
+        mode: request.mode,
+        kind: "image/png",
+        status: "rendered-image",
+        width: request.output.width,
+        height: request.output.height,
+        bytesBase64: payload.toString("base64"),
+        contentHash: { algorithm: "sha256", value: createHash("sha256").update(payload).digest("hex") },
+        pixelHash: { algorithm: "sha256", value: "native-linear-pixels-fixture-001" },
+        sourceIdentity: { imageId: request.source.imageId, path: request.source.path, revision: request.source.revision },
+        recipeFingerprint: "native-recipe-fingerprint-fixture-001",
+      };
+    },
+  });
   const previewWorkflow = createPreviewWorkflow({
     cachePathFor: (descriptor) => path.join(dir, `${descriptor.proxyKey}.png`),
+    nativePipeline,
   });
   const queued = previewWorkflow.requestPreview({
     source,
     recipe,
     viewport: { width: 1512, height: 1006 },
   });
-  const previewReady = previewWorkflow.fulfillPreview(queued);
+  const previewReady = await previewWorkflow.fulfillPreview(queued);
   const previewBytes = await readFile(previewReady.previewArtifact.cacheFilePath);
 
-  const exportFoundation = createExportFoundation({ clock: () => "2025-07-01T00:00:00.000Z" });
+  const exportFoundation = createExportFoundation({ clock: () => "2025-07-01T00:00:00.000Z", nativePipeline });
   const outputPath = path.join(dir, "fixture-001.png.json");
   const exported = await exportFoundation.writeArtifact(outputPath, {
     source,
@@ -89,15 +113,27 @@ test("preview cache png bytes and png export companion bytes stay identical when
   const exportBytes = await readFile(path.join(dir, "fixture-001.png"));
   const written = JSON.parse(await readFile(outputPath, "utf8"));
 
+  assert.deepEqual(calls.map((call) => call.command), ["render_pipeline", "render_pipeline"]);
+  assert.deepEqual(calls.map((call) => call.request.mode), ["preview", "export"]);
+  assert.deepEqual(calls.map((call) => call.request.output), [
+    { width: 1512, height: 1006, format: "png" },
+    { width: 1512, height: 1006, format: "png" },
+  ]);
+  assert.deepEqual(previewBytes, goldenPreviewBytes);
+  assert.deepEqual(exportBytes, goldenExportBytes);
   assert.deepEqual(previewBytes, exportBytes);
-  assert.deepEqual(
-    { ...previewReady.previewArtifact.renderedImage, path: null },
-    { ...exported.companionOutput, path: null },
-  );
+  assert.equal(previewReady.previewArtifact.renderedImage.pixelHash.value, exported.companionOutput.pixelHash.value);
+  assert.equal(previewReady.previewArtifact.renderedImage.pipelineCommand, "render_pipeline");
+  assert.equal(exported.companionOutput.pipelineCommand, "render_pipeline");
+  assert.deepEqual(written.sourceIdentity, {
+    imageId: source.imageId,
+    path: source.path,
+    revision: source.revision,
+  });
+  assert.equal(written.recipeFingerprint, exported.recipeFingerprint);
   assert.deepEqual(written.renderedImage, written.companionOutput);
   assert.equal(previewReady.previewArtifact.renderedImage.width, 1512);
   assert.equal(previewReady.previewArtifact.renderedImage.height, 1006);
   assert.equal(exported.companionOutput.status, "rendered-image");
   assert.equal(exported.companionOutput.kind, "image/png");
-  assert.equal(previewReady.previewArtifact.behaviorSignature, exported.behaviorSignature);
 });

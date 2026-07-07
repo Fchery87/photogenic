@@ -65,6 +65,7 @@ export function createPreviewWorkflow({
   previewFoundation = createPreviewFoundation(),
   proxyCache = createProxyCache(),
   cachePathFor = defaultCachePathFor,
+  nativePipeline = null,
 } = {}) {
   if (typeof cachePathFor !== "function") {
     throw new TypeError("cachePathFor must be a function");
@@ -140,21 +141,40 @@ export function createPreviewWorkflow({
 
     fulfillPreview(request, { cacheFilePath = cachePathFor(request?.proxy) } = {}) {
       const result = this.fulfillPreviewReport(request, { cacheFilePath });
-      return result.preview;
+      return typeof result?.then === "function" ? result.then((resolved) => resolved.preview) : result.preview;
     },
 
-    fulfillPreviewReport(request, { cacheFilePath = cachePathFor(request?.proxy) } = {}) {
-      const rendered = renderDeterministicSoftwarePng({
-        source: request?.source,
-        recipe: request?.recipe,
-        width: request?.viewport?.width,
-        height: request?.viewport?.height,
-      });
+    fulfillPreviewReport(request, { cacheFilePath = cachePathFor(request?.proxy), renderedOverride = null } = {}) {
+      const rendered = renderedOverride ?? (nativePipeline
+        ? nativePipeline.render({
+          mode: "preview",
+          source: request?.source,
+          recipe: request?.recipe,
+          width: request?.viewport?.width,
+          height: request?.viewport?.height,
+          format: "png",
+        })
+        : renderDeterministicSoftwarePng({
+          source: request?.source,
+          recipe: request?.recipe,
+          width: request?.viewport?.width,
+          height: request?.viewport?.height,
+        }));
+      if (typeof rendered?.then === "function") {
+        return rendered.then(({ bytes, descriptor }) =>
+          this.fulfillPreviewReport(
+            request,
+            { cacheFilePath, renderedOverride: { bytes, descriptor } },
+          ),
+        );
+      }
+      const renderedBytes = rendered.bytes;
+      const renderedDescriptor = rendered.descriptor;
       mkdirSync(path.dirname(cacheFilePath), { recursive: true });
-      writeFileSync(cacheFilePath, rendered.bytes);
+      writeFileSync(cacheFilePath, renderedBytes);
       const renderedImage = {
         path: cacheFilePath,
-        ...rendered.descriptor,
+        ...renderedDescriptor,
       };
       const ready = previewFoundation.fulfillRequest(request, { renderedImage });
       const cacheRecord = proxyCache.put(request.proxy, cacheFilePath, renderedImage);
@@ -238,17 +258,32 @@ export function createPreviewWorkflow({
       };
     },
 
-    rerenderPreview(snapshot, { cacheFilePath = cachePathFor((snapshot?.request ?? snapshot)?.proxy) } = {}) {
+    rerenderPreview(snapshot, { cacheFilePath = cachePathFor((snapshot?.request ?? snapshot)?.proxy), renderedOverride = null } = {}) {
       if (!snapshot || typeof snapshot !== "object") {
         throw new TypeError("preview snapshot is required");
       }
       const restored = previewFoundation.restoreRequest(snapshot.request ?? snapshot);
-      const rendered = renderDeterministicSoftwarePng({
-        source: restored.source,
-        recipe: restored.recipe,
-        width: restored.viewport?.width,
-        height: restored.viewport?.height,
-      });
+      const rendered = renderedOverride ?? (nativePipeline
+        ? nativePipeline.render({
+          mode: "preview",
+          source: restored.source,
+          recipe: restored.recipe,
+          width: restored.viewport?.width,
+          height: restored.viewport?.height,
+          format: "png",
+        })
+        : renderDeterministicSoftwarePng({
+          source: restored.source,
+          recipe: restored.recipe,
+          width: restored.viewport?.width,
+          height: restored.viewport?.height,
+        }));
+      if (typeof rendered?.then === "function") {
+        return rendered.then(({ bytes, descriptor }) => this.rerenderPreview(snapshot, {
+          cacheFilePath,
+          renderedOverride: { bytes, descriptor },
+        }));
+      }
       mkdirSync(path.dirname(cacheFilePath), { recursive: true });
       writeFileSync(cacheFilePath, rendered.bytes);
       const renderedImage = {

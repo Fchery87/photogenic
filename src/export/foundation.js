@@ -219,7 +219,7 @@ async function readArtifactSidecar(outputPath) {
   }
 }
 
-export function createExportFoundation({ clock = () => new Date().toISOString() } = {}) {
+export function createExportFoundation({ clock = () => new Date().toISOString(), nativePipeline = null } = {}) {
   return {
     buildArtifact({ source, recipe, outputName, options = {}, renderedImage = null, generatedAt = clock() }) {
       const exportOptions = normalizeExportOptions(options);
@@ -242,30 +242,39 @@ export function createExportFoundation({ clock = () => new Date().toISOString() 
 
       let companionOutput;
       if (exportOptions.format === "jpeg" || exportOptions.format === "png" || exportOptions.format === "tiff") {
-        const rendered = exportOptions.format === "jpeg"
-          ? renderDeterministicSoftwareJpeg({
+        const dimensions = resolveRenderedDimensions(source, exportOptions);
+        const rendered = nativePipeline
+          ? await nativePipeline.render({
+            mode: "export",
             source,
             recipe,
-            ...resolveRenderedDimensions(source, exportOptions),
-            quality: exportOptions.quality,
-            sharpen: exportOptions.sharpenForOutput,
-            embedIcc: exportOptions.embedIcc,
+            ...dimensions,
+            format: exportOptions.format,
           })
-          : exportOptions.format === "png"
-            ? renderDeterministicSoftwarePng({
+          : exportOptions.format === "jpeg"
+            ? renderDeterministicSoftwareJpeg({
               source,
               recipe,
-              ...resolveRenderedDimensions(source, exportOptions),
+              ...dimensions,
+              quality: exportOptions.quality,
               sharpen: exportOptions.sharpenForOutput,
               embedIcc: exportOptions.embedIcc,
             })
-            : renderDeterministicSoftwareTiff16({
-              source,
-              recipe,
-              ...resolveRenderedDimensions(source, exportOptions),
-              sharpen: exportOptions.sharpenForOutput,
-              embedIcc: exportOptions.embedIcc,
-            });
+            : exportOptions.format === "png"
+              ? renderDeterministicSoftwarePng({
+                source,
+                recipe,
+                ...dimensions,
+                sharpen: exportOptions.sharpenForOutput,
+                embedIcc: exportOptions.embedIcc,
+              })
+              : renderDeterministicSoftwareTiff16({
+                source,
+                recipe,
+                ...dimensions,
+                sharpen: exportOptions.sharpenForOutput,
+                embedIcc: exportOptions.embedIcc,
+              });
         await writeFile(companionOutputPath, rendered.bytes);
         companionOutput = {
           path: companionOutputPath,
