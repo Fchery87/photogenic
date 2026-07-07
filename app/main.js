@@ -1,6 +1,9 @@
 import { createRecipe } from "../src/edit-recipe/recipe.js";
 import { createPreviewFoundation } from "../src/preview/foundation.js";
-import { GATE_LADDER, evaluateViewportProof } from "../src/viewport-proof/gates.js";
+import { measureAnimationFrameFps } from "../src/viewport-proof/fps.js";
+import { createViewportProofReport } from "../src/viewport-proof/report.js";
+import { loadViewportProofResults, resolveTauriInvoke } from "../src/viewport-proof/shell-source.js";
+import { measureHarnessWebviewGates } from "../src/viewport-proof/webview.js";
 
 function drawGradient(canvas) {
   const ctx = canvas.getContext("2d");
@@ -11,10 +14,6 @@ function drawGradient(canvas) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   return true;
-}
-
-function collectResults(_gradientDrawn) {
-  return [];
 }
 
 function renderPreviewFoundation(canvas) {
@@ -38,26 +37,41 @@ function renderPreviewFoundation(canvas) {
   `;
 }
 
-function render() {
-  const canvas = /** @type {HTMLCanvasElement} */ (
-    document.getElementById("gradient")
-  );
-  const gradientDrawn = drawGradient(canvas);
-  const results = collectResults(gradientDrawn);
-  const verdict = evaluateViewportProof(results);
-  const passed = new Set(verdict.passedGates);
-
+function renderReport(report) {
   const gatesEl = document.getElementById("gates");
-  gatesEl.innerHTML = GATE_LADDER.map((id) => {
-    const done = passed.has(id);
-    return `<div class="gate"><span>${id}</span>
-      <span class="${done ? "pass" : "todo"}">${done ? "PASS" : "TODO"}</span></div>`;
-  }).join("");
+  gatesEl.innerHTML = report.gates
+    .map(
+      (gate) => `
+    <div class="gate-stack">
+      <div class="gate"><span>${gate.id}</span>
+        <span class="${gate.tone}">${gate.label}</span></div>
+      <div class="gate-detail">${gate.detail}</div>
+      ${gate.metricsSummary ? `<div class="gate-detail">${gate.metricsSummary}</div>` : ""}
+    </div>
+  `,
+    )
+    .join("");
 
-  document.getElementById("verdict").textContent =
-    `${verdict.shellDecisionUnlocked ? "UNLOCKED" : "PROVISIONAL"} — ${verdict.reason}`;
+  document.getElementById("evidence-summary").textContent = report.evidenceSummary;
+  document.getElementById("progress-summary").textContent = report.progressSummary;
+  document.getElementById("verdict").textContent = `${report.headline} — ${report.verdict.reason}`;
+}
 
+async function render() {
+  const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("gradient"));
+  const gradientDrawn = drawGradient(canvas);
+  const invoke = resolveTauriInvoke();
+  const results = await loadViewportProofResults({
+    gradientDrawn,
+    invoke,
+    measureSustainedFps: invoke ? () => measureAnimationFrameFps() : null,
+    measureWebviewGates: invoke ? () => measureHarnessWebviewGates() : null,
+  });
+  renderReport(createViewportProofReport(results));
   renderPreviewFoundation(canvas);
 }
 
-render();
+render().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  document.getElementById("verdict").textContent = `PROVISIONAL — Harness failed to load viewport-proof evidence: ${message}`;
+});

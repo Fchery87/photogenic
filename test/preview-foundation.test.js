@@ -21,9 +21,42 @@ test("preview requests transition from queued to ready with deterministic artifa
   const recipe = createRecipe({ operations: [{ type: "contrast", params: { amount: 12 } }] });
   const request = foundation.createRequest({ source, recipe, viewport: { width: 1200, height: 800 } });
   assert.equal(request.status, "queued");
-  const resolved = foundation.fulfillRequest(request);
+  const resolved = foundation.fulfillRequest(request, {
+    renderedImage: {
+      path: "/cache/preview-001.png",
+      kind: "image/png",
+      status: "rendered-image",
+      sizeBytes: 123,
+      contentHash: { algorithm: "sha256", value: "abc" },
+      width: 1200,
+      height: 800,
+      note: "rendered",
+    },
+  });
   assert.equal(resolved.status, "ready");
   assert.equal(resolved.previewArtifact.mode, "preview");
   assert.equal(resolved.previewArtifact.proxyKey, request.proxy.proxyKey);
   assert.equal(resolved.previewArtifact.behaviorSignature.length, 64);
+  assert.equal(resolved.previewArtifact.renderedImage.kind, "image/png");
+  assert.equal(resolved.previewArtifact.renderedImage.width, 1200);
+});
+
+test("newer requests supersede older queued requests for the same image", () => {
+  const foundation = createPreviewFoundation({ clock: () => "2025-07-01T00:00:00.000Z" });
+  const first = foundation.createRequest({ source, recipe: createRecipe(), viewport: { width: 1200, height: 800 } });
+  const second = foundation.createRequest({ source, recipe: createRecipe({ operations: [{ type: "contrast", params: { amount: 4 } }] }), viewport: { width: 1400, height: 900 } });
+  assert.equal(second.supersedesRequestId, first.requestId);
+  const superseded = foundation.supersedeRequest(first, second);
+  assert.equal(superseded.status, "superseded");
+  assert.equal(superseded.supersededByRequestId, second.requestId);
+  assert.equal(foundation.latestRequestIdFor(source.imageId), second.requestId);
+});
+
+test("queued requests can be cancelled before fulfillment", () => {
+  const foundation = createPreviewFoundation({ clock: () => "2025-07-01T00:00:00.000Z" });
+  const request = foundation.createRequest({ source, recipe: createRecipe(), viewport: { width: 1200, height: 800 } });
+  const cancelled = foundation.cancelRequest(request, "User navigated away.");
+  assert.equal(cancelled.status, "cancelled");
+  assert.match(cancelled.note, /navigated away/i);
+  assert.throws(() => foundation.fulfillRequest(cancelled), /queued preview request/i);
 });

@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { normalizeRecipe } from "../edit-recipe/schema.js";
 export const SIDECAR_SCHEMA_VERSION = 1;
@@ -14,3 +14,25 @@ export function parseSidecar(text) {
 }
 export const writeSidecarFile = async (p, payload) => { await mkdir(dirname(p), { recursive: true }); await writeFile(p, serializeSidecar(payload), "utf8"); };
 export const readSidecarFile = async (p) => parseSidecar(await readFile(p, "utf8"));
+
+export async function readSidecarFileMetadata(p) {
+  try {
+    const file = await stat(p);
+    return {
+      path: p,
+      status: "present",
+      byteSize: Number.isInteger(file.size) ? file.size : null,
+      modifiedAt: file.mtime instanceof Date && !Number.isNaN(file.mtime.valueOf()) ? file.mtime.toISOString() : null,
+    };
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        path: p,
+        status: "missing",
+        byteSize: null,
+        modifiedAt: null,
+      };
+    }
+    throw error;
+  }
+}

@@ -17,6 +17,7 @@ function normalizeEntry(imageId, entry) {
     revision: Number.isInteger(entry.revision) ? entry.revision : 0,
     updatedAt: typeof entry.updatedAt === "string" ? entry.updatedAt : nowIso(),
     sidecarPath: entry.sidecarPath ?? null,
+    sidecarLinkedAt: typeof entry.sidecarLinkedAt === "string" ? entry.sidecarLinkedAt : null,
   };
 }
 
@@ -72,6 +73,7 @@ export async function createCatalogRecipeStore({ path, clock = nowIso }) {
       revision: (previousEntry?.revision ?? 0) + 1,
       updatedAt: clock(),
       sidecarPath: previousEntry?.sidecarPath ?? null,
+      sidecarLinkedAt: previousEntry?.sidecarLinkedAt ?? null,
     };
   }
 
@@ -108,6 +110,7 @@ export async function createCatalogRecipeStore({ path, clock = nowIso }) {
           exportedAt: clock(),
         });
         entry.sidecarPath = sidecarPath;
+        entry.sidecarLinkedAt = clock();
         store.images[imageId] = entry;
         await saveStore(store);
         return { imageId, sidecarPath, revision: entry.revision };
@@ -128,6 +131,7 @@ export async function createCatalogRecipeStore({ path, clock = nowIso }) {
         if (!catalogEntry) {
           const inserted = toEntry(imageId, sidecar.recipe, null);
           inserted.sidecarPath = sidecarPath;
+          inserted.sidecarLinkedAt = clock();
           store.images[imageId] = inserted;
           await saveStore(store);
           return { status: "imported", winner: "sidecar", entry: clone(inserted) };
@@ -135,6 +139,7 @@ export async function createCatalogRecipeStore({ path, clock = nowIso }) {
 
         if (catalogEntry.recipeFingerprint === sidecarFingerprint) {
           catalogEntry.sidecarPath = sidecarPath;
+          catalogEntry.sidecarLinkedAt = clock();
           store.images[imageId] = catalogEntry;
           await saveStore(store);
           return { status: "in-sync", winner: "catalog", entry: clone(catalogEntry) };
@@ -143,12 +148,14 @@ export async function createCatalogRecipeStore({ path, clock = nowIso }) {
         if (onConflict === "replace-catalog") {
           const replaced = toEntry(imageId, sidecar.recipe, catalogEntry);
           replaced.sidecarPath = sidecarPath;
+          replaced.sidecarLinkedAt = clock();
           store.images[imageId] = replaced;
           await saveStore(store);
           return { status: "imported", winner: "sidecar", entry: clone(replaced) };
         }
 
         catalogEntry.sidecarPath = sidecarPath;
+        catalogEntry.sidecarLinkedAt = clock();
         store.images[imageId] = catalogEntry;
         await saveStore(store);
         return {

@@ -25,7 +25,7 @@ async function main() {
     builtAt: new Date().toISOString(),
     entry: "app/index.html",
     files: appFiles.sort(),
-    note: "Phase 0 viewport-proof harness (ADR-0004). Gradient gate only.",
+    note: "Phase 0 viewport-proof harness (ADR-0004). Gradient remains provisional; shell-webview requestAnimationFrame sustained-fps sampling is available when the Tauri bridge is connected.",
   };
   await writeFile(
     path.join(dist, "manifest.json"),

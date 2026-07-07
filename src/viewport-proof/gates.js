@@ -24,10 +24,24 @@ export const GATE_LADDER = /** @type {const} */ ([
 ]);
 
 /**
+ * @typedef {Object} GateMetrics
+ * @property {number} [physicalWidth]   Measured physical surface width in px.
+ * @property {number} [physicalHeight]  Measured physical surface height in px.
+ * @property {number} [scaleFactor]     Measured shell/webview scale factor.
+ * @property {number} [frameCount]      Count of animation frames sampled.
+ * @property {number} [durationMs]      Duration of the FPS sample window in ms.
+ * @property {number} [red]             Measured red channel sample.
+ * @property {number} [green]           Measured green channel sample.
+ * @property {number} [blue]            Measured blue channel sample.
+ * @property {number} [alpha]           Measured alpha channel sample.
+ */
+
+/**
  * @typedef {Object} GateResult
  * @property {GateId} id
  * @property {boolean} passed
  * @property {number} [fps]      Measured frames/sec, where relevant.
+ * @property {GateMetrics} [metrics] Structured shell measurement metadata, where relevant.
  * @property {string} [note]     Optional human-readable detail.
  */
 

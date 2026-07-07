@@ -61,6 +61,8 @@ test("exportSidecar writes a portable Sidecar copy of the catalog recipe", async
   assert.equal(exportResult.imageId, "img-raw-01");
   assert.equal(payload.imageId, "img-raw-01");
   assert.equal(payload.catalogRevision, 1);
+  const linked = await store.get("img-raw-01");
+  assert.equal(linked.sidecarLinkedAt, "2025-07-01T00:00:02.000Z");
   assert.deepEqual(payload.recipe.operations, [
     { type: "temperature", params: { kelvinDelta: 500 } },
   ]);
@@ -91,6 +93,7 @@ test("importSidecar inserts into the Catalog when no catalog entry exists", asyn
   const loaded = await store.get("img-002");
   assert.equal(result.status, "imported");
   assert.equal(result.winner, "sidecar");
+  assert.equal(loaded.sidecarLinkedAt, "2025-07-01T00:00:01.000Z");
   assert.deepEqual(loaded.recipe.operations, [{ type: "shadows", params: { amount: -8 } }]);
 });
 
@@ -121,6 +124,7 @@ test("conflicting Sidecar import does not overwrite the authoritative Catalog by
   assert.equal(result.status, "conflict");
   assert.equal(result.winner, "catalog");
   assert.match(result.reason, /source of truth/i);
+  assert.equal(loaded.sidecarLinkedAt, "2025-07-01T00:00:01.000Z");
   assert.deepEqual(loaded.recipe.operations, [{ type: "exposure", params: { ev: 0.2 } }]);
 });
 
@@ -153,6 +157,7 @@ test("replace-catalog conflict mode allows explicit/manual Sidecar import", asyn
   assert.equal(result.status, "imported");
   assert.equal(result.winner, "sidecar");
   assert.equal(loaded.revision, 2);
+  assert.equal(loaded.sidecarLinkedAt, "2025-07-01T00:00:02.000Z");
   assert.deepEqual(loaded.recipe.operations, [{ type: "contrast", params: { amount: 30 } }]);
 });
 

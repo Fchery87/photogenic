@@ -32,7 +32,16 @@ export function computeBehaviorSignature({ source, recipe }) {
     .digest("hex");
 }
 
-export function buildRenderArtifact({ mode, source, recipe, generatedAt, proxyKey = null, outputName = null }) {
+export function buildRenderArtifact({
+  mode,
+  source,
+  recipe,
+  generatedAt,
+  proxyKey = null,
+  outputName = null,
+  exportOptions = null,
+  renderedImage = null,
+}) {
   if (mode !== "preview" && mode !== "export") throw new RangeError(`unsupported render mode: ${String(mode)}`);
   const normalizedSource = normalizeSource(source);
   const normalizedRecipe = normalizeRecipe(recipe);
@@ -47,6 +56,8 @@ export function buildRenderArtifact({ mode, source, recipe, generatedAt, proxyKe
     operationCount: normalizedRecipe.operations.length,
     proxyKey,
     outputName,
+    exportOptions,
+    renderedImage,
     behaviorSignature: computeBehaviorSignature({ source: normalizedSource, recipe: normalizedRecipe }),
     generatedAt: generatedAt ?? new Date().toISOString(),
   };
