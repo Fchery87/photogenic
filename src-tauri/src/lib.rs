@@ -1,6 +1,8 @@
 use serde::Serialize;
 use tauri::WebviewWindow;
 
+pub mod core;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ViewportProofMetrics {
