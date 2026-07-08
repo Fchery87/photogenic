@@ -78,6 +78,7 @@ test("preview and export call the same native pipeline command and preserve pixe
       { type: "shadows", params: { amount: 20 } },
       { type: "whites", params: { amount: 10 } },
       { type: "blacks", params: { amount: -20 } },
+      { type: "toneCurve", params: { points: [[0, 0], [0.5, 0.6], [1, 1]] } },
       ...recipe.operations,
     ],
   };
@@ -129,8 +130,8 @@ test("preview and export call the same native pipeline command and preserve pixe
   assert.deepEqual(calls.map((call) => call.command), ["render_pipeline", "render_pipeline"]);
   assert.deepEqual(calls.map((call) => call.request.mode), ["preview", "export"]);
   assert.deepEqual(calls.map((call) => call.request.recipe.operations.map((operation) => operation.type)), [
-    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", ...recipe.operations.map((operation) => operation.type)],
-    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", ...recipe.operations.map((operation) => operation.type)],
   ]);
   assert.deepEqual(calls.map((call) => call.request.output), [
     { width: 1512, height: 1006, format: "png" },

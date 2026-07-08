@@ -12,6 +12,7 @@ const ALLOWED_OPERATION_TYPES: &[&str] = &[
     "shadows",
     "whites",
     "blacks",
+    "toneCurve",
     "temperature",
     "tint",
     "crop",
@@ -232,8 +233,50 @@ fn validate_operation_params(
         "contrast" | "highlights" | "shadows" | "whites" | "blacks" => {
             validate_required_number(params, "amount", index)
         }
+        "toneCurve" => validate_constrained_tone_curve(params, index),
         _ => Ok(()),
     }
+}
+
+fn validate_constrained_tone_curve(
+    params: &Map<String, Value>,
+    index: usize,
+) -> Result<(), RecipeError> {
+    let Some(Value::Array(points)) = params.get("points") else {
+        return Err(invalid_tone_curve(index));
+    };
+    if points.len() != 3 {
+        return Err(invalid_tone_curve(index));
+    }
+    let parsed: Option<Vec<(f64, f64)>> = points
+        .iter()
+        .map(|point| {
+            let values = point.as_array()?;
+            if values.len() != 2 {
+                return None;
+            }
+            let x = values[0].as_f64()?;
+            let y = values[1].as_f64()?;
+            if !x.is_finite() || !y.is_finite() {
+                return None;
+            }
+            Some((x, y))
+        })
+        .collect();
+    let Some(parsed) = parsed else {
+        return Err(invalid_tone_curve(index));
+    };
+    if parsed[0] != (0.0, 0.0) || parsed[1].0 != 0.5 || parsed[2] != (1.0, 1.0) {
+        return Err(invalid_tone_curve(index));
+    }
+    Ok(())
+}
+
+fn invalid_tone_curve(index: usize) -> RecipeError {
+    RecipeError::new(
+        RecipeErrorKind::InvalidParams,
+        format!("operation {index} tone curve points must be [[0,0],[0.5,y],[1,1]]"),
+    )
 }
 
 fn validate_required_number(
@@ -612,6 +655,31 @@ mod tests {
 
             assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
         }
+    }
+
+    #[test]
+    fn validates_constrained_rgb_tone_curve_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"toneCurve","params":{"points":[[0,0],[0.5,0.6],[1,1]]}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["toneCurve"]);
+    }
+
+    #[test]
+    fn rejects_malformed_tone_curve_params() {
+        let unsorted = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"toneCurve","params":{"points":[[0,0],[0.4,0.6],[1,1]]}}]}"#,
+        )
+        .unwrap_err();
+        let non_numeric = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"toneCurve","params":{"points":[[0,0],[0.5,"lift"],[1,1]]}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(unsorted.kind(), RecipeErrorKind::InvalidParams);
+        assert_eq!(non_numeric.kind(), RecipeErrorKind::InvalidParams);
     }
 
     #[test]

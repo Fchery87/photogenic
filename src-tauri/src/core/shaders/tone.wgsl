@@ -9,6 +9,7 @@ struct DevelopParams {
   shadows_amount: f32,
   whites_amount: f32,
   blacks_amount: f32,
+  tone_curve_midpoint_y: f32,
   _padding: u32,
 }
 
@@ -59,6 +60,13 @@ fn apply_tone_ranges(sample: f32) -> f32 {
   return with_whites;
 }
 
+fn apply_tone_curve(sample: f32) -> f32 {
+  if (sample <= 0.5) {
+    return sample * (params.tone_curve_midpoint_y / 0.5);
+  }
+  return params.tone_curve_midpoint_y + (sample - 0.5) * ((1.0 - params.tone_curve_midpoint_y) / 0.5);
+}
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   let index = id.x;
@@ -67,5 +75,5 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   }
   let exposed = input_samples[index] * params.exposure_multiplier;
   let balanced = exposed * white_balance_multiplier(index);
-  output_samples[index] = apply_tone_ranges(apply_contrast(balanced));
+  output_samples[index] = apply_tone_curve(apply_tone_ranges(apply_contrast(balanced)));
 }

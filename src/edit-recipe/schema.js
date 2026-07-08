@@ -8,6 +8,7 @@ export const ALLOWED_OPERATION_TYPES = new Set([
   "shadows",
   "whites",
   "blacks",
+  "toneCurve",
   "temperature",
   "tint",
   "crop",
@@ -76,6 +77,22 @@ function validateOperation(op, index) {
   ) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
+  if (op.type === "toneCurve" && !isConstrainedToneCurve(op.params.points)) {
+    throw new TypeError(`operation ${index} tone curve points must be [[0,0],[0.5,y],[1,1]]`);
+  }
+}
+
+function isConstrainedToneCurve(points) {
+  return (
+    Array.isArray(points) &&
+    points.length === 3 &&
+    points.every((point) => Array.isArray(point) && point.length === 2 && point.every(isFiniteNumber)) &&
+    points[0][0] === 0 &&
+    points[0][1] === 0 &&
+    points[1][0] === 0.5 &&
+    points[2][0] === 1 &&
+    points[2][1] === 1
+  );
 }
 
 export function normalizeRecipe(recipe) {

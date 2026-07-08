@@ -121,6 +121,27 @@ test("validateRecipe rejects malformed tone range params", () => {
   }
 });
 
+test("validateRecipe accepts constrained RGB tone curve params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [{ type: "toneCurve", params: { points: [[0, 0], [0.5, 0.6], [1, 1]] } }],
+    }).operations,
+    [{ type: "toneCurve", params: { points: [[0, 0], [0.5, 0.6], [1, 1]] } }],
+  );
+});
+
+test("validateRecipe rejects malformed tone curve params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "toneCurve", params: { points: [[0, 0], [0.4, 0.6], [1, 1]] } }] }),
+    /tone curve/i,
+  );
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "toneCurve", params: { points: [[0, 0], [0.5, "lift"], [1, 1]] } }] }),
+    /tone curve/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -166,6 +187,7 @@ test("allowed operation list covers the foundation set", () => {
     "shadows",
     "whites",
     "blacks",
+    "toneCurve",
     "temperature",
     "tint",
     "crop",

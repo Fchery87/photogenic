@@ -77,3 +77,19 @@ fn gpu_tone_range_controls_match_cpu_for_linear_samples() {
     assert_samples_close(actual.samples(), expected.buffer().samples());
     assert_samples_close(actual.samples(), &[0.166, 0.3, 0.5, 0.725, 0.901]);
 }
+
+#[test]
+fn gpu_tone_curve_matches_cpu_for_linear_samples() {
+    let source = DecodedImageBuffer::linear_float(1, 5, vec![0.0, 0.25, 0.5, 0.75, 1.0]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"toneCurve","params":{"points":[[0,0],[0.5,0.6],[1,1]]}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.0, 0.3, 0.6, 0.8, 1.0]);
+}

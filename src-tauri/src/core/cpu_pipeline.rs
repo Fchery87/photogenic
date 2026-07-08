@@ -88,21 +88,25 @@ impl CpuPipeline {
         let white_balance = white_balance_from_recipe(recipe);
         let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
         let tone_ranges = tone_ranges_from_recipe(recipe);
+        let tone_curve = tone_curve_from_recipe(recipe);
         let samples = source
             .samples()
             .iter()
             .enumerate()
             .map(|(index, sample)| {
-                apply_tone_ranges(
-                    apply_contrast(
-                        apply_white_balance_channel(
-                            apply_exposure_ev(*sample, exposure_ev),
-                            index,
-                            white_balance,
+                apply_tone_curve(
+                    apply_tone_ranges(
+                        apply_contrast(
+                            apply_white_balance_channel(
+                                apply_exposure_ev(*sample, exposure_ev),
+                                index,
+                                white_balance,
+                            ),
+                            contrast_multiplier,
                         ),
-                        contrast_multiplier,
+                        tone_ranges,
                     ),
-                    tone_ranges,
+                    tone_curve,
                 )
             })
             .collect();
@@ -111,6 +115,44 @@ impl CpuPipeline {
 
         Ok(CpuRenderResult { mode, buffer })
     }
+}
+
+#[derive(Clone, Copy)]
+struct ToneCurve {
+    midpoint_y: f32,
+}
+
+fn tone_curve_from_recipe(recipe: &Recipe) -> ToneCurve {
+    let midpoint_y = recipe
+        .operations()
+        .iter()
+        .filter_map(tone_curve_midpoint_y_from_operation)
+        .last()
+        .unwrap_or(0.5);
+    ToneCurve { midpoint_y }
+}
+
+fn apply_tone_curve(sample: f32, tone_curve: ToneCurve) -> f32 {
+    if sample <= 0.5 {
+        sample * (tone_curve.midpoint_y / 0.5)
+    } else {
+        tone_curve.midpoint_y + (sample - 0.5) * ((1.0 - tone_curve.midpoint_y) / 0.5)
+    }
+}
+
+fn tone_curve_midpoint_y_from_operation(operation: &Value) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some("toneCurve") {
+        return None;
+    }
+    operation
+        .get("params")
+        .and_then(|params| params.get("points"))
+        .and_then(Value::as_array)
+        .and_then(|points| points.get(1))
+        .and_then(Value::as_array)
+        .and_then(|point| point.get(1))
+        .and_then(Value::as_f64)
+        .map(|value| value as f32)
 }
 
 #[derive(Clone, Copy)]
@@ -358,5 +400,20 @@ mod tests {
             rendered.buffer().samples(),
             &[0.166, 0.3, 0.5, 0.725, 0.901],
         );
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_tone_curve_midpoint_interpolation() {
+        let source =
+            DecodedImageBuffer::linear_float(1, 5, vec![0.0, 0.25, 0.5, 0.75, 1.0]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"toneCurve","params":{"points":[[0,0],[0.5,0.6],[1,1]]}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_samples_close(rendered.buffer().samples(), &[0.0, 0.3, 0.6, 0.8, 1.0]);
     }
 }
