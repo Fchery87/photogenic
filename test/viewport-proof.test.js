@@ -8,11 +8,26 @@ import {
 
 // Helper: build a full passing result set.
 function allPassing() {
-  return GATE_LADDER.map((id) =>
-    id === "sustained_60fps"
+  return GATE_LADDER.map((id) => {
+    if (id === "raw_frame") {
+      return {
+        id,
+        passed: true,
+        metrics: {
+          sourceFileId: "viewport-proof-native-frame",
+          recipeFingerprint: "f".repeat(64),
+          frameWidth: 2,
+          frameHeight: 2,
+          transferMethod: "cpu-linear-float32",
+          frameHash: "a".repeat(64),
+          renderDurationMs: 4,
+        },
+      };
+    }
+    return id === "sustained_60fps"
       ? { id, passed: true, fps: 62 }
-      : { id, passed: true },
-  );
+      : { id, passed: true };
+  });
 }
 
 test("gate ladder has the ADR-0004 progressive order", () => {
@@ -45,11 +60,37 @@ test("gradient-only pass is NECESSARY BUT NOT SUFFICIENT (ADR-0004)", () => {
 test("gradientOnly is strict: false once a second gate also passes", () => {
   const r = evaluateViewportProof([
     { id: "gradient", passed: true },
-    { id: "raw_frame", passed: true },
+    allPassing().find((result) => result.id === "raw_frame"),
   ]);
   assert.equal(r.gradientOnly, false);
   assert.equal(r.provisional, true);
   assert.equal(r.shellDecisionUnlocked, false);
+});
+
+test("raw_frame cannot pass without native pipeline frame provenance", () => {
+  const r = evaluateViewportProof([
+    { id: "gradient", passed: true },
+    { id: "raw_frame", passed: true },
+  ]);
+  assert.equal(r.shellDecisionUnlocked, false);
+  assert.deepEqual(r.passedGates, ["gradient"]);
+  assert.deepEqual(r.remainingGates, [
+    "raw_frame",
+    "zoom_pan",
+    "overlay",
+    "color_managed",
+    "sustained_60fps",
+  ]);
+});
+
+test("gradient plus unproven raw_frame still cannot unlock the shell decision", () => {
+  const results = allPassing().map((result) =>
+    result.id === "raw_frame" ? { id: "raw_frame", passed: true, metrics: { frameWidth: 2, frameHeight: 2 } } : result,
+  );
+  const r = evaluateViewportProof(results);
+  assert.equal(r.shellDecisionUnlocked, false);
+  assert.deepEqual(r.remainingGates, ["raw_frame"]);
+  assert.match(r.reason, /raw-frame provenance/i);
 });
 
 test("fps exactly at the 60 floor counts as a genuine pass", () => {
@@ -142,7 +183,7 @@ test("rejects non-boolean passed", () => {
 test("partial-ladder pass reports correct remaining gates", () => {
   const r = evaluateViewportProof([
     { id: "gradient", passed: true },
-    { id: "raw_frame", passed: true },
+    allPassing().find((result) => result.id === "raw_frame"),
     { id: "zoom_pan", passed: false },
   ]);
   assert.deepEqual(r.passedGates, ["gradient", "raw_frame"]);

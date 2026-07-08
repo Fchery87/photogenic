@@ -25,7 +25,19 @@ test("uses shell-provided measurements and merges DOM webview gates plus a susta
         {
           id: "raw_frame",
           passed: false,
-          metrics: { physicalWidth: 1440, physicalHeight: 900, scaleFactor: 2, ignored: 1 },
+          metrics: {
+            physicalWidth: 1440,
+            physicalHeight: 900,
+            scaleFactor: 2,
+            sourceFileId: "viewport-proof-native-frame",
+            recipeFingerprint: "f".repeat(64),
+            frameWidth: 2,
+            frameHeight: 2,
+            transferMethod: "cpu-linear-float32",
+            frameHash: "a".repeat(64),
+            renderDurationMs: 4,
+            ignored: 1,
+          },
           note: "Raw frame path not yet proven.",
         },
       ];
@@ -49,7 +61,18 @@ test("uses shell-provided measurements and merges DOM webview gates plus a susta
     id: "raw_frame",
     passed: false,
     fps: undefined,
-    metrics: { physicalWidth: 1440, physicalHeight: 900, scaleFactor: 2 },
+    metrics: {
+      physicalWidth: 1440,
+      physicalHeight: 900,
+      scaleFactor: 2,
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
     note: "Raw frame path not yet proven.",
   });
   assert.deepEqual(results[2], {
@@ -73,6 +96,45 @@ test("uses shell-provided measurements and merges DOM webview gates plus a susta
     metrics: { frameCount: 31, durationMs: 500 },
     note:
       "Measured 61.2 fps from requestAnimationFrame across 31 frames over 500 ms in this shell webview. This samples presentation cadence only; the separate raw-frame, zoom/pan, overlay, and color-management gates still require their own measurements.",
+  });
+});
+
+test("passes through native frame provenance for a measured raw frame", async () => {
+  const results = await loadViewportProofResults({
+    gradientDrawn: true,
+    invoke: async () => [
+      { id: "gradient", passed: true, note: "Measured in shell." },
+      {
+        id: "raw_frame",
+        passed: true,
+        metrics: {
+          sourceFileId: "viewport-proof-native-frame",
+          recipeFingerprint: "f".repeat(64),
+          frameWidth: 2,
+          frameHeight: 2,
+          transferMethod: "cpu-linear-float32",
+          frameHash: "a".repeat(64),
+          renderDurationMs: 4,
+        },
+        note: "Native Pipeline frame rendered and transferred to the viewport proof harness.",
+      },
+    ],
+  });
+
+  assert.deepEqual(results[1], {
+    id: "raw_frame",
+    passed: true,
+    fps: undefined,
+    metrics: {
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
+    note: "Native Pipeline frame rendered and transferred to the viewport proof harness.",
   });
 });
 

@@ -3,11 +3,28 @@ import assert from "node:assert/strict";
 import { evaluateViewportProof } from "../src/viewport-proof/gates.js";
 import { createViewportProofFoundation } from "../src/viewport-proof/foundation.js";
 
+function nativeRawFrameResult() {
+  return {
+    id: "raw_frame",
+    passed: true,
+    metrics: {
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
+    note: "Raw frame proven.",
+  };
+}
+
 test("viewport proof foundation extracts deterministic summary metadata from results", () => {
   const foundation = createViewportProofFoundation();
   const summary = foundation.summarizeProof([
     { id: "gradient", passed: true, note: "Measured in shell." },
-    { id: "raw_frame", passed: true, note: "Raw frame proven." },
+    nativeRawFrameResult(),
     { id: "sustained_60fps", passed: true, fps: 45 },
   ]);
 
@@ -29,7 +46,7 @@ test("viewport proof foundation can reuse a precomputed verdict without changing
   const foundation = createViewportProofFoundation();
   const results = [
     { id: "gradient", passed: true },
-    { id: "raw_frame", passed: true },
+    nativeRawFrameResult(),
   ];
   const verdict = evaluateViewportProof(results);
 

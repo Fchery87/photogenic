@@ -26,7 +26,7 @@ async function makeHarness() {
     shell: "tauri-dev",
     results: [
       { id: "gradient", passed: true, note: "Measured in shell." },
-      { id: "raw_frame", passed: true, note: "Raw frame proven." },
+      nativeRawFrameResult(),
       { id: "zoom_pan", passed: true, note: "Zoom/pan proven." },
       { id: "overlay", passed: true, note: "Overlay proven." },
       { id: "color_managed", passed: true, note: "Color management proven." },
@@ -35,6 +35,23 @@ async function makeHarness() {
   });
 
   return createViewportProofDashboardWorkflow({ sessionStore });
+}
+
+function nativeRawFrameResult() {
+  return {
+    id: "raw_frame",
+    passed: true,
+    metrics: {
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
+    note: "Raw frame proven.",
+  };
 }
 
 test("viewport dashboard workflow summarizes unlocked and provisional proof runs", async () => {
@@ -225,7 +242,7 @@ test("viewport dashboard workflow summarizeSessionsReport tracks skipped missing
             ? [{ id: "gradient", passed: false, note: "Placeholder only." }]
             : [
               { id: "gradient", passed: true, note: "Measured in shell." },
-              { id: "raw_frame", passed: true, note: "Raw frame proven." },
+              nativeRawFrameResult(),
               { id: "zoom_pan", passed: true, note: "Zoom/pan proven." },
               { id: "overlay", passed: true, note: "Overlay proven." },
               { id: "color_managed", passed: true, note: "Color management proven." },

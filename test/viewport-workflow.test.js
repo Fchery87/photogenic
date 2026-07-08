@@ -16,6 +16,23 @@ async function makeWorkflow() {
   return createViewportProofWorkflow({ sessionStore });
 }
 
+function nativeRawFrameResult() {
+  return {
+    id: "raw_frame",
+    passed: true,
+    metrics: {
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
+    note: "Raw frame proven.",
+  };
+}
+
 test("viewport workflow saves placeholder browser evidence and returns a readable provisional report", async () => {
   const workflow = await makeWorkflow();
   const result = await workflow.collectAndSave({
@@ -40,7 +57,7 @@ test("viewport workflow saves successful shell measurements and reloads an unloc
     gradientDrawn: true,
     invoke: async () => [
       { id: "gradient", passed: true, note: "Measured in shell." },
-      { id: "raw_frame", passed: true, note: "Raw frame proven." },
+      nativeRawFrameResult(),
       { id: "zoom_pan", passed: true, note: "Zoom/pan proven." },
       { id: "overlay", passed: true, note: "Overlay proven." },
       { id: "color_managed", passed: true, note: "Color management proven." },
@@ -66,7 +83,7 @@ test("viewport workflow report helpers return operation metadata", async () => {
     gradientDrawn: true,
     invoke: async () => [
       { id: "gradient", passed: true, note: "Measured in shell." },
-      { id: "raw_frame", passed: true, note: "Raw frame proven." },
+      nativeRawFrameResult(),
     ],
   });
 

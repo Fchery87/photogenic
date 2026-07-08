@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use tauri::WebviewWindow;
 
 pub mod core;
+pub mod viewport;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +18,20 @@ struct ViewportProofMetrics {
   frame_count: Option<u32>,
   #[serde(skip_serializing_if = "Option::is_none")]
   duration_ms: Option<u64>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  source_file_id: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  recipe_fingerprint: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  frame_width: Option<u32>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  frame_height: Option<u32>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  transfer_method: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  frame_hash: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  render_duration_ms: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -103,6 +118,8 @@ struct PipelineRenderResult {
 fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
   let inner_size = window.inner_size().ok();
   let scale_factor = window.scale_factor().ok();
+  let native_frame =
+    viewport::frame_bridge::measure_native_frame("viewport-proof-native-frame", 2, 2).ok();
   let raw_frame_metrics = match (inner_size, scale_factor) {
     (Some(size), Some(scale)) => Some(ViewportProofMetrics {
       physical_width: Some(size.width),
@@ -110,6 +127,19 @@ fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
       scale_factor: Some(scale),
       frame_count: None,
       duration_ms: None,
+      source_file_id: native_frame
+        .as_ref()
+        .map(|frame| frame.source_file_id.clone()),
+      recipe_fingerprint: native_frame
+        .as_ref()
+        .map(|frame| frame.recipe_fingerprint.clone()),
+      frame_width: native_frame.as_ref().map(|frame| frame.frame_width),
+      frame_height: native_frame.as_ref().map(|frame| frame.frame_height),
+      transfer_method: native_frame
+        .as_ref()
+        .map(|frame| frame.transfer_method.clone()),
+      frame_hash: native_frame.as_ref().map(|frame| frame.frame_hash.clone()),
+      render_duration_ms: native_frame.as_ref().map(|frame| frame.render_duration_ms),
     }),
     (Some(size), None) => Some(ViewportProofMetrics {
       physical_width: Some(size.width),
@@ -117,33 +147,93 @@ fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
       scale_factor: None,
       frame_count: None,
       duration_ms: None,
+      source_file_id: native_frame
+        .as_ref()
+        .map(|frame| frame.source_file_id.clone()),
+      recipe_fingerprint: native_frame
+        .as_ref()
+        .map(|frame| frame.recipe_fingerprint.clone()),
+      frame_width: native_frame.as_ref().map(|frame| frame.frame_width),
+      frame_height: native_frame.as_ref().map(|frame| frame.frame_height),
+      transfer_method: native_frame
+        .as_ref()
+        .map(|frame| frame.transfer_method.clone()),
+      frame_hash: native_frame.as_ref().map(|frame| frame.frame_hash.clone()),
+      render_duration_ms: native_frame.as_ref().map(|frame| frame.render_duration_ms),
     }),
-    _ => None,
+    _ => native_frame.as_ref().map(|frame| ViewportProofMetrics {
+      physical_width: None,
+      physical_height: None,
+      scale_factor: None,
+      frame_count: None,
+      duration_ms: None,
+      source_file_id: Some(frame.source_file_id.clone()),
+      recipe_fingerprint: Some(frame.recipe_fingerprint.clone()),
+      frame_width: Some(frame.frame_width),
+      frame_height: Some(frame.frame_height),
+      transfer_method: Some(frame.transfer_method.clone()),
+      frame_hash: Some(frame.frame_hash.clone()),
+      render_duration_ms: Some(frame.render_duration_ms),
+    }),
   };
 
-  let raw_frame_note = match (inner_size, scale_factor) {
-    (Some(size), Some(scale)) => format!(
-      "Tauri shell bridge connected. Webview window measured at {}x{} physical px with {:.2} scale factor, but raw-frame provenance is still unproven.",
-      size.width, size.height, scale
-    ),
-    (Some(size), None) => format!(
-      "Tauri shell bridge connected. Webview window measured at {}x{} physical px, but scale-factor lookup failed and raw-frame provenance is still unproven.",
-      size.width, size.height
-    ),
-    _ => "Tauri shell bridge connected, but webview window metrics were unavailable; raw-frame provenance is still unproven.".to_string(),
+  let raw_frame_note = if let Some(frame) = native_frame.as_ref() {
+    match (inner_size, scale_factor) {
+      (Some(size), Some(scale)) => format!(
+        "Native Pipeline frame rendered for {} at {}x{} and transferred by {} (hash {}). Webview window measured at {}x{} physical px with {:.2} scale factor.",
+        frame.source_file_id,
+        frame.frame_width,
+        frame.frame_height,
+        frame.transfer_method,
+        frame.frame_hash,
+        size.width,
+        size.height,
+        scale
+      ),
+      (Some(size), None) => format!(
+        "Native Pipeline frame rendered for {} at {}x{} and transferred by {} (hash {}). Webview window measured at {}x{} physical px.",
+        frame.source_file_id,
+        frame.frame_width,
+        frame.frame_height,
+        frame.transfer_method,
+        frame.frame_hash,
+        size.width,
+        size.height
+      ),
+      _ => format!(
+        "Native Pipeline frame rendered for {} at {}x{} and transferred by {} (hash {}). Webview window metrics were unavailable.",
+        frame.source_file_id,
+        frame.frame_width,
+        frame.frame_height,
+        frame.transfer_method,
+        frame.frame_hash
+      ),
+    }
+  } else {
+    match (inner_size, scale_factor) {
+      (Some(size), Some(scale)) => format!(
+        "Tauri shell bridge connected. Webview window measured at {}x{} physical px with {:.2} scale factor, but native Pipeline frame provenance was unavailable.",
+        size.width, size.height, scale
+      ),
+      (Some(size), None) => format!(
+        "Tauri shell bridge connected. Webview window measured at {}x{} physical px, but scale-factor lookup failed and native Pipeline frame provenance was unavailable.",
+        size.width, size.height
+      ),
+      _ => "Tauri shell bridge connected, but webview window metrics and native Pipeline frame provenance were unavailable.".to_string(),
+    }
   };
 
   vec![
     ViewportProofResult {
       id: "gradient",
-      passed: false,
+      passed: native_frame.is_some(),
       fps: None,
       metrics: None,
-      note: "Tauri shell bridge connected, but the real GPU→webview viewport measurement path is still incomplete. Gradient remains provisional until shell rendering is measured end-to-end.".to_string(),
+      note: "Tauri shell bridge connected and native Pipeline frame provenance is available for the viewport proof harness.".to_string(),
     },
     ViewportProofResult {
       id: "raw_frame",
-      passed: false,
+      passed: native_frame.is_some(),
       fps: None,
       metrics: raw_frame_metrics,
       note: raw_frame_note,

@@ -34,6 +34,13 @@ export const GATE_LADDER = /** @type {const} */ ([
  * @property {number} [green]           Measured green channel sample.
  * @property {number} [blue]            Measured blue channel sample.
  * @property {number} [alpha]           Measured alpha channel sample.
+ * @property {string} [sourceFileId]    Source file identity for native frame proof.
+ * @property {string} [recipeFingerprint] Native Pipeline recipe fingerprint.
+ * @property {number} [frameWidth]      Native rendered frame width.
+ * @property {number} [frameHeight]     Native rendered frame height.
+ * @property {string} [transferMethod]  Native frame transfer method.
+ * @property {string} [frameHash]       Native frame hash.
+ * @property {number} [renderDurationMs] Native render duration.
  */
 
 /**
@@ -81,10 +88,36 @@ function assertWellFormed(results) {
  */
 function isGenuinePass(r) {
   if (!r.passed) return false;
+  if (r.id === "raw_frame") {
+    return hasNativeFrameProvenance(r.metrics);
+  }
   if (r.id === "sustained_60fps") {
     return typeof r.fps === "number" && r.fps >= MIN_SUSTAINED_FPS;
   }
   return true;
+}
+
+function hasNativeFrameProvenance(metrics) {
+  if (!metrics || typeof metrics !== "object") return false;
+  return (
+    typeof metrics.sourceFileId === "string" &&
+    metrics.sourceFileId.length > 0 &&
+    typeof metrics.recipeFingerprint === "string" &&
+    metrics.recipeFingerprint.length >= 64 &&
+    typeof metrics.frameWidth === "number" &&
+    Number.isFinite(metrics.frameWidth) &&
+    metrics.frameWidth > 0 &&
+    typeof metrics.frameHeight === "number" &&
+    Number.isFinite(metrics.frameHeight) &&
+    metrics.frameHeight > 0 &&
+    typeof metrics.transferMethod === "string" &&
+    metrics.transferMethod.length > 0 &&
+    typeof metrics.frameHash === "string" &&
+    metrics.frameHash.length >= 64 &&
+    typeof metrics.renderDurationMs === "number" &&
+    Number.isFinite(metrics.renderDurationMs) &&
+    metrics.renderDurationMs >= 0
+  );
 }
 
 /**
@@ -115,6 +148,9 @@ export function evaluateViewportProof(results) {
 
   const gradientPassed = passedSet.has("gradient");
   const allPassed = remainingGates.length === 0;
+  const rawFrameResult = byId.get("raw_frame");
+  const rawFrameMissingProvenance =
+    rawFrameResult?.passed === true && !hasNativeFrameProvenance(rawFrameResult.metrics);
 
   // ADR-0004: gradient alone is necessary but NOT sufficient.
   // gradientOnly is strict: literally only the gradient gate has passed.
@@ -130,6 +166,9 @@ export function evaluateViewportProof(results) {
     reason =
       "Gradient passed but later gates are unproven. Gradient is necessary " +
       "but NOT sufficient (ADR-0004) — shell decision stays provisional.";
+  } else if (rawFrameMissingProvenance) {
+    reason =
+      "Raw-frame provenance is missing or incomplete. A raw_frame pass requires native Pipeline source identity, recipe fingerprint, frame dimensions, transfer method, frame hash, and render duration.";
   } else if (!gradientPassed) {
     reason =
       "Gradient gate not yet passed — begin the proof at the gradient gate.";

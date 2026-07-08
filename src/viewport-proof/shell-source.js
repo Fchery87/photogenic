@@ -1,6 +1,20 @@
 const COMMAND_NAME = "viewport_proof_results";
 const MIN_SUSTAINED_FPS = 60;
-const METRIC_KEYS = ["physicalWidth", "physicalHeight", "scaleFactor", "frameCount", "durationMs", "red", "green", "blue", "alpha"];
+const NUMBER_METRIC_KEYS = [
+  "physicalWidth",
+  "physicalHeight",
+  "scaleFactor",
+  "frameCount",
+  "durationMs",
+  "red",
+  "green",
+  "blue",
+  "alpha",
+  "frameWidth",
+  "frameHeight",
+  "renderDurationMs",
+];
+const STRING_METRIC_KEYS = ["sourceFileId", "recipeFingerprint", "transferMethod", "frameHash"];
 
 function placeholderGradientResult() {
   return [
@@ -27,11 +41,17 @@ function sanitizeMetrics(metrics) {
   }
 
   const sanitized = Object.fromEntries(
-    METRIC_KEYS.flatMap((key) => {
+    NUMBER_METRIC_KEYS.flatMap((key) => {
       const value = metrics[key];
       return typeof value === "number" && Number.isFinite(value) ? [[key, value]] : [];
     }),
   );
+  for (const key of STRING_METRIC_KEYS) {
+    const value = metrics[key];
+    if (typeof value === "string" && value.length > 0) {
+      sanitized[key] = value;
+    }
+  }
 
   return Object.keys(sanitized).length > 0 ? sanitized : undefined;
 }

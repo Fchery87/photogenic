@@ -20,6 +20,26 @@ async function makeTempStore() {
   return { store };
 }
 
+function nativeRawFrameResult() {
+  return {
+    id: "raw_frame",
+    passed: true,
+    metrics: {
+      physicalWidth: 1440,
+      physicalHeight: 900,
+      scaleFactor: 2,
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
+    note: "Raw frame proven.",
+  };
+}
+
 test("viewport proof session store persists ordered gate results with computed verdicts", async () => {
   const { store } = await makeTempStore();
   const saved = await store.saveSession("tauri-dev", {
@@ -58,7 +78,7 @@ test("updating a viewport proof session preserves createdAt and refreshes verdic
     shell: "tauri-dev",
     results: [
       { id: "gradient", passed: true, note: "Measured in shell." },
-      { id: "raw_frame", passed: true, metrics: { physicalWidth: 1440, physicalHeight: 900, scaleFactor: 2 }, note: "Raw frame proven." },
+      nativeRawFrameResult(),
       { id: "zoom_pan", passed: true, note: "Zoom/pan proven." },
       { id: "overlay", passed: true, note: "Overlay proven." },
       { id: "color_managed", passed: true, note: "Color management proven." },
