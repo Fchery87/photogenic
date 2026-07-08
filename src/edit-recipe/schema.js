@@ -9,6 +9,7 @@ export const ALLOWED_OPERATION_TYPES = new Set([
   "whites",
   "blacks",
   "toneCurve",
+  "hsl",
   "temperature",
   "tint",
   "crop",
@@ -80,6 +81,9 @@ function validateOperation(op, index) {
   if (op.type === "toneCurve" && !isConstrainedToneCurve(op.params.points)) {
     throw new TypeError(`operation ${index} tone curve points must be [[0,0],[0.5,y],[1,1]]`);
   }
+  if (op.type === "hsl" && !isRedHslAdjustment(op.params)) {
+    throw new TypeError(`operation ${index} hsl params must target red with finite hue, saturation, and luminance`);
+  }
 }
 
 function isConstrainedToneCurve(points) {
@@ -92,6 +96,15 @@ function isConstrainedToneCurve(points) {
     points[1][0] === 0.5 &&
     points[2][0] === 1 &&
     points[2][1] === 1
+  );
+}
+
+function isRedHslAdjustment(params) {
+  return (
+    params.range === "red" &&
+    isFiniteNumber(params.hue) &&
+    isFiniteNumber(params.saturation) &&
+    isFiniteNumber(params.luminance)
   );
 }
 

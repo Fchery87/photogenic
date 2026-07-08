@@ -142,6 +142,27 @@ test("validateRecipe rejects malformed tone curve params", () => {
   );
 });
 
+test("validateRecipe accepts finite red HSL params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [{ type: "hsl", params: { range: "red", hue: 30, saturation: 20, luminance: -10 } }],
+    }).operations,
+    [{ type: "hsl", params: { range: "red", hue: 30, saturation: 20, luminance: -10 } }],
+  );
+});
+
+test("validateRecipe rejects malformed HSL params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "hsl", params: { range: "blue", hue: 0, saturation: 0, luminance: 0 } }] }),
+    /hsl/i,
+  );
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "hsl", params: { range: "red", hue: "warm", saturation: 0, luminance: 0 } }] }),
+    /hsl/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -188,6 +209,7 @@ test("allowed operation list covers the foundation set", () => {
     "whites",
     "blacks",
     "toneCurve",
+    "hsl",
     "temperature",
     "tint",
     "crop",

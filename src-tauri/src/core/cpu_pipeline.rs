@@ -89,7 +89,8 @@ impl CpuPipeline {
         let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
         let tone_ranges = tone_ranges_from_recipe(recipe);
         let tone_curve = tone_curve_from_recipe(recipe);
-        let samples = source
+        let red_hsl = red_hsl_from_recipe(recipe);
+        let developed_samples: Vec<f32> = source
             .samples()
             .iter()
             .enumerate()
@@ -110,11 +111,81 @@ impl CpuPipeline {
                 )
             })
             .collect();
+        let samples = apply_red_hsl_samples(source.samples(), &developed_samples, red_hsl);
         let buffer = DecodedImageBuffer::linear_float(source.width(), source.height(), samples)
             .map_err(|error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error))?;
 
         Ok(CpuRenderResult { mode, buffer })
     }
+}
+
+#[derive(Clone, Copy)]
+struct RedHslAdjustment {
+    hue: f32,
+    saturation: f32,
+    luminance: f32,
+}
+
+fn red_hsl_from_recipe(recipe: &Recipe) -> RedHslAdjustment {
+    let mut adjustment = RedHslAdjustment {
+        hue: 0.0,
+        saturation: 0.0,
+        luminance: 0.0,
+    };
+    for operation in recipe.operations() {
+        if operation.get("type").and_then(Value::as_str) != Some("hsl") {
+            continue;
+        }
+        if operation
+            .get("params")
+            .and_then(|params| params.get("range"))
+            .and_then(Value::as_str)
+            != Some("red")
+        {
+            continue;
+        }
+        adjustment.hue += operation
+            .get("params")
+            .and_then(|params| params.get("hue"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as f32;
+        adjustment.saturation += operation
+            .get("params")
+            .and_then(|params| params.get("saturation"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as f32;
+        adjustment.luminance += operation
+            .get("params")
+            .and_then(|params| params.get("luminance"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as f32;
+    }
+    adjustment
+}
+
+fn apply_red_hsl_samples(
+    source_samples: &[f32],
+    developed_samples: &[f32],
+    adjustment: RedHslAdjustment,
+) -> Vec<f32> {
+    developed_samples
+        .chunks(3)
+        .zip(source_samples.chunks(3))
+        .flat_map(|(developed, source)| {
+            if source.len() < 3 || developed.len() < 3 || !is_red_dominant(source) {
+                return developed.to_vec();
+            }
+            vec![
+                developed[0] * (1.0 + adjustment.luminance / 100.0),
+                developed[1] + adjustment.hue / 100.0 * (1.0 + adjustment.saturation / 100.0),
+                developed[2],
+            ]
+        })
+        .collect()
+}
+
+fn is_red_dominant(samples: &[f32]) -> bool {
+    samples[0] > samples[1] && samples[0] > samples[2]
 }
 
 #[derive(Clone, Copy)]
@@ -415,5 +486,27 @@ mod tests {
             .unwrap();
 
         assert_samples_close(rendered.buffer().samples(), &[0.0, 0.3, 0.6, 0.8, 1.0]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_red_hsl_adjustment_to_rgb_samples() {
+        let source = DecodedImageBuffer::linear_float(
+            3,
+            1,
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        )
+        .unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"hsl","params":{"range":"red","hue":30,"saturation":20,"luminance":-10}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_samples_close(
+            rendered.buffer().samples(),
+            &[0.9, 0.36, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        );
     }
 }

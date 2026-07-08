@@ -93,3 +93,24 @@ fn gpu_tone_curve_matches_cpu_for_linear_samples() {
     assert_samples_close(actual.samples(), expected.buffer().samples());
     assert_samples_close(actual.samples(), &[0.0, 0.3, 0.6, 0.8, 1.0]);
 }
+
+#[test]
+fn gpu_hsl_matches_cpu_for_red_rgb_samples() {
+    let source =
+        DecodedImageBuffer::linear_float(3, 1, vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
+            .unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"hsl","params":{"range":"red","hue":30,"saturation":20,"luminance":-10}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(
+        actual.samples(),
+        &[0.9, 0.36, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    );
+}

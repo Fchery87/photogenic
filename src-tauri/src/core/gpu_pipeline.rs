@@ -23,6 +23,9 @@ struct DevelopParams {
     whites_amount: f32,
     blacks_amount: f32,
     tone_curve_midpoint_y: f32,
+    red_hsl_hue: f32,
+    red_hsl_saturation: f32,
+    red_hsl_luminance: f32,
     _padding: u32,
 }
 
@@ -121,6 +124,7 @@ impl GpuPipeline {
         let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
         let tone_ranges = tone_ranges_from_recipe(recipe);
         let tone_curve = tone_curve_from_recipe(recipe);
+        let red_hsl = red_hsl_from_recipe(recipe);
         let params = DevelopParams {
             multiplier,
             sample_count,
@@ -133,6 +137,9 @@ impl GpuPipeline {
             whites_amount: tone_ranges.whites,
             blacks_amount: tone_ranges.blacks,
             tone_curve_midpoint_y: tone_curve.midpoint_y,
+            red_hsl_hue: red_hsl.hue,
+            red_hsl_saturation: red_hsl.saturation,
+            red_hsl_luminance: red_hsl.luminance,
             _padding: 0,
         };
 
@@ -362,6 +369,50 @@ fn amount_from_operation(operation: &Value, operation_type: &str) -> Option<f32>
         .and_then(|params| params.get("amount"))
         .and_then(Value::as_f64)
         .map(|value| value as f32)
+}
+
+#[derive(Clone, Copy)]
+struct RedHslAdjustment {
+    hue: f32,
+    saturation: f32,
+    luminance: f32,
+}
+
+fn red_hsl_from_recipe(recipe: &Recipe) -> RedHslAdjustment {
+    let mut adjustment = RedHslAdjustment {
+        hue: 0.0,
+        saturation: 0.0,
+        luminance: 0.0,
+    };
+    for operation in recipe.operations() {
+        if operation.get("type").and_then(Value::as_str) != Some("hsl") {
+            continue;
+        }
+        if operation
+            .get("params")
+            .and_then(|params| params.get("range"))
+            .and_then(Value::as_str)
+            != Some("red")
+        {
+            continue;
+        }
+        adjustment.hue += operation
+            .get("params")
+            .and_then(|params| params.get("hue"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as f32;
+        adjustment.saturation += operation
+            .get("params")
+            .and_then(|params| params.get("saturation"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as f32;
+        adjustment.luminance += operation
+            .get("params")
+            .and_then(|params| params.get("luminance"))
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0) as f32;
+    }
+    adjustment
 }
 
 #[derive(Clone, Copy)]

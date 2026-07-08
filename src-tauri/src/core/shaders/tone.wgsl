@@ -10,6 +10,9 @@ struct DevelopParams {
   whites_amount: f32,
   blacks_amount: f32,
   tone_curve_midpoint_y: f32,
+  red_hsl_hue: f32,
+  red_hsl_saturation: f32,
+  red_hsl_luminance: f32,
   _padding: u32,
 }
 
@@ -67,6 +70,28 @@ fn apply_tone_curve(sample: f32) -> f32 {
   return params.tone_curve_midpoint_y + (sample - 0.5) * ((1.0 - params.tone_curve_midpoint_y) / 0.5);
 }
 
+fn apply_red_hsl_channel(sample: f32, index: u32) -> f32 {
+  let pixel_start = index - (index % 3u);
+  if ((pixel_start + 2u) >= params.sample_count) {
+    return sample;
+  }
+  let source_red = input_samples[pixel_start];
+  let source_green = input_samples[pixel_start + 1u];
+  let source_blue = input_samples[pixel_start + 2u];
+  if (!(source_red > source_green && source_red > source_blue)) {
+    return sample;
+  }
+
+  let channel = index % 3u;
+  if (channel == 0u) {
+    return sample * (1.0 + params.red_hsl_luminance / 100.0);
+  }
+  if (channel == 1u) {
+    return sample + params.red_hsl_hue / 100.0 * (1.0 + params.red_hsl_saturation / 100.0);
+  }
+  return sample;
+}
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   let index = id.x;
@@ -75,5 +100,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   }
   let exposed = input_samples[index] * params.exposure_multiplier;
   let balanced = exposed * white_balance_multiplier(index);
-  output_samples[index] = apply_tone_curve(apply_tone_ranges(apply_contrast(balanced)));
+  let toned = apply_tone_curve(apply_tone_ranges(apply_contrast(balanced)));
+  output_samples[index] = apply_red_hsl_channel(toned, index);
 }

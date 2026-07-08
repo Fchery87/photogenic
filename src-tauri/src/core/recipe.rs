@@ -13,6 +13,7 @@ const ALLOWED_OPERATION_TYPES: &[&str] = &[
     "whites",
     "blacks",
     "toneCurve",
+    "hsl",
     "temperature",
     "tint",
     "crop",
@@ -234,8 +235,34 @@ fn validate_operation_params(
             validate_required_number(params, "amount", index)
         }
         "toneCurve" => validate_constrained_tone_curve(params, index),
+        "hsl" => validate_red_hsl_adjustment(params, index),
         _ => Ok(()),
     }
+}
+
+fn validate_red_hsl_adjustment(
+    params: &Map<String, Value>,
+    index: usize,
+) -> Result<(), RecipeError> {
+    if params.get("range").and_then(Value::as_str) != Some("red") {
+        return Err(invalid_hsl(index));
+    }
+    for field in ["hue", "saturation", "luminance"] {
+        match params.get(field).and_then(Value::as_f64) {
+            Some(value) if value.is_finite() => {}
+            _ => return Err(invalid_hsl(index)),
+        }
+    }
+    Ok(())
+}
+
+fn invalid_hsl(index: usize) -> RecipeError {
+    RecipeError::new(
+        RecipeErrorKind::InvalidParams,
+        format!(
+            "operation {index} hsl params must target red with finite hue, saturation, and luminance"
+        ),
+    )
 }
 
 fn validate_constrained_tone_curve(
@@ -679,6 +706,31 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(unsorted.kind(), RecipeErrorKind::InvalidParams);
+        assert_eq!(non_numeric.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_red_hsl_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"hsl","params":{"range":"red","hue":30,"saturation":20,"luminance":-10}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["hsl"]);
+    }
+
+    #[test]
+    fn rejects_malformed_hsl_params() {
+        let unsupported_range = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"hsl","params":{"range":"blue","hue":0,"saturation":0,"luminance":0}}]}"#,
+        )
+        .unwrap_err();
+        let non_numeric = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"hsl","params":{"range":"red","hue":"warm","saturation":0,"luminance":0}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(unsupported_range.kind(), RecipeErrorKind::InvalidParams);
         assert_eq!(non_numeric.kind(), RecipeErrorKind::InvalidParams);
     }
 
