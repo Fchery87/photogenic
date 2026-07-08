@@ -130,3 +130,19 @@ fn gpu_sharpening_matches_cpu_for_linear_samples() {
     assert_samples_close(actual.samples(), expected.buffer().samples());
     assert_samples_close(actual.samples(), &[0.2, 0.5, 0.8]);
 }
+
+#[test]
+fn gpu_noise_reduction_matches_cpu_for_linear_samples() {
+    let source = DecodedImageBuffer::linear_float(1, 3, vec![0.25, 0.5, 0.75]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"noiseReduction","params":{"amount":20}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.3, 0.5, 0.7]);
+}

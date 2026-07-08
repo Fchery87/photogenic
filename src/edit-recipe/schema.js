@@ -11,6 +11,7 @@ export const ALLOWED_OPERATION_TYPES = new Set([
   "toneCurve",
   "hsl",
   "sharpen",
+  "noiseReduction",
   "temperature",
   "tint",
   "crop",
@@ -86,6 +87,9 @@ function validateOperation(op, index) {
     throw new TypeError(`operation ${index} hsl params must target red with finite hue, saturation, and luminance`);
   }
   if (op.type === "sharpen" && !isFiniteNumber(op.params.amount)) {
+    throw new TypeError(`operation ${index} params.amount must be a finite number`);
+  }
+  if (op.type === "noiseReduction" && !isFiniteNumber(op.params.amount)) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
 }

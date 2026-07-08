@@ -180,6 +180,23 @@ test("validateRecipe rejects malformed sharpening params", () => {
   );
 });
 
+test("validateRecipe accepts finite noise reduction params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [{ type: "noiseReduction", params: { amount: 20 } }],
+    }).operations,
+    [{ type: "noiseReduction", params: { amount: 20 } }],
+  );
+});
+
+test("validateRecipe rejects malformed noise reduction params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "noiseReduction", params: { amount: "smooth" } }] }),
+    /amount/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -228,6 +245,7 @@ test("allowed operation list covers the foundation set", () => {
     "toneCurve",
     "hsl",
     "sharpen",
+    "noiseReduction",
     "temperature",
     "tint",
     "crop",

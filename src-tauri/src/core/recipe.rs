@@ -15,6 +15,7 @@ const ALLOWED_OPERATION_TYPES: &[&str] = &[
     "toneCurve",
     "hsl",
     "sharpen",
+    "noiseReduction",
     "temperature",
     "tint",
     "crop",
@@ -232,9 +233,8 @@ fn validate_operation_params(
     match operation_type {
         "temperature" => validate_required_number(params, "kelvinDelta", index),
         "tint" => validate_required_number(params, "amount", index),
-        "contrast" | "highlights" | "shadows" | "whites" | "blacks" | "sharpen" => {
-            validate_required_number(params, "amount", index)
-        }
+        "contrast" | "highlights" | "shadows" | "whites" | "blacks" | "sharpen"
+        | "noiseReduction" => validate_required_number(params, "amount", index),
         "toneCurve" => validate_constrained_tone_curve(params, index),
         "hsl" => validate_red_hsl_adjustment(params, index),
         _ => Ok(()),
@@ -749,6 +749,26 @@ mod tests {
     fn rejects_malformed_sharpen_params() {
         let error = Recipe::from_json_str(
             r#"{"version":1,"operations":[{"type":"sharpen","params":{"amount":"crisp"}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_noise_reduction_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"noiseReduction","params":{"amount":20}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["noiseReduction"]);
+    }
+
+    #[test]
+    fn rejects_malformed_noise_reduction_params() {
+        let error = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"noiseReduction","params":{"amount":"smooth"}}]}"#,
         )
         .unwrap_err();
 

@@ -27,6 +27,7 @@ struct DevelopParams {
     red_hsl_saturation: f32,
     red_hsl_luminance: f32,
     sharpen_amount: f32,
+    noise_reduction_amount: f32,
     _padding: u32,
 }
 
@@ -127,6 +128,7 @@ impl GpuPipeline {
         let tone_curve = tone_curve_from_recipe(recipe);
         let red_hsl = red_hsl_from_recipe(recipe);
         let sharpen_amount = sharpening_amount_from_recipe(recipe);
+        let noise_reduction_amount = noise_reduction_amount_from_recipe(recipe);
         let params = DevelopParams {
             multiplier,
             sample_count,
@@ -143,6 +145,7 @@ impl GpuPipeline {
             red_hsl_saturation: red_hsl.saturation,
             red_hsl_luminance: red_hsl.luminance,
             sharpen_amount,
+            noise_reduction_amount,
             _padding: 0,
         };
 
@@ -379,6 +382,14 @@ fn sharpening_amount_from_recipe(recipe: &Recipe) -> f32 {
         .operations()
         .iter()
         .filter_map(|operation| amount_from_operation(operation, "sharpen"))
+        .sum()
+}
+
+fn noise_reduction_amount_from_recipe(recipe: &Recipe) -> f32 {
+    recipe
+        .operations()
+        .iter()
+        .filter_map(|operation| amount_from_operation(operation, "noiseReduction"))
         .sum()
 }
 

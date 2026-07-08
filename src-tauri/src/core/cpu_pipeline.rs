@@ -91,6 +91,7 @@ impl CpuPipeline {
         let tone_curve = tone_curve_from_recipe(recipe);
         let red_hsl = red_hsl_from_recipe(recipe);
         let sharpening_amount = sharpening_amount_from_recipe(recipe);
+        let noise_reduction_amount = noise_reduction_amount_from_recipe(recipe);
         let developed_samples: Vec<f32> = source
             .samples()
             .iter()
@@ -115,6 +116,7 @@ impl CpuPipeline {
         let samples = apply_red_hsl_samples(source.samples(), &developed_samples, red_hsl)
             .into_iter()
             .map(|sample| apply_sharpening(sample, sharpening_amount))
+            .map(|sample| apply_noise_reduction(sample, noise_reduction_amount))
             .collect();
         let buffer = DecodedImageBuffer::linear_float(source.width(), source.height(), samples)
             .map_err(|error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error))?;
@@ -133,6 +135,18 @@ fn sharpening_amount_from_recipe(recipe: &Recipe) -> f32 {
 
 fn apply_sharpening(sample: f32, amount: f32) -> f32 {
     sample + amount / 100.0 * (sample - 0.5)
+}
+
+fn noise_reduction_amount_from_recipe(recipe: &Recipe) -> f32 {
+    recipe
+        .operations()
+        .iter()
+        .filter_map(|operation| amount_from_operation(operation, "noiseReduction"))
+        .sum()
+}
+
+fn apply_noise_reduction(sample: f32, amount: f32) -> f32 {
+    sample + amount / 100.0 * (0.5 - sample)
 }
 
 #[derive(Clone, Copy)]
@@ -538,5 +552,19 @@ mod tests {
             .unwrap();
 
         assert_samples_close(rendered.buffer().samples(), &[0.2, 0.5, 0.8]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_noise_reduction_smoothing() {
+        let source = DecodedImageBuffer::linear_float(1, 3, vec![0.25, 0.5, 0.75]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"noiseReduction","params":{"amount":20}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_samples_close(rendered.buffer().samples(), &[0.3, 0.5, 0.7]);
     }
 }

@@ -81,6 +81,7 @@ test("preview and export call the same native pipeline command and preserve pixe
       { type: "toneCurve", params: { points: [[0, 0], [0.5, 0.6], [1, 1]] } },
       { type: "hsl", params: { range: "red", hue: 30, saturation: 20, luminance: -10 } },
       { type: "sharpen", params: { amount: 20 } },
+      { type: "noiseReduction", params: { amount: 20 } },
       ...recipe.operations,
     ],
   };
@@ -132,8 +133,8 @@ test("preview and export call the same native pipeline command and preserve pixe
   assert.deepEqual(calls.map((call) => call.command), ["render_pipeline", "render_pipeline"]);
   assert.deepEqual(calls.map((call) => call.request.mode), ["preview", "export"]);
   assert.deepEqual(calls.map((call) => call.request.recipe.operations.map((operation) => operation.type)), [
-    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", ...recipe.operations.map((operation) => operation.type)],
-    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", "noiseReduction", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", "noiseReduction", ...recipe.operations.map((operation) => operation.type)],
   ]);
   assert.deepEqual(calls.map((call) => call.request.output), [
     { width: 1512, height: 1006, format: "png" },
