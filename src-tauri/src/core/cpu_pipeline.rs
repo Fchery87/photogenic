@@ -85,16 +85,84 @@ impl CpuPipeline {
             .iter()
             .filter_map(exposure_ev_from_operation)
             .sum::<f32>();
+        let white_balance = white_balance_from_recipe(recipe);
         let samples = source
             .samples()
             .iter()
-            .map(|sample| apply_exposure_ev(*sample, exposure_ev))
+            .enumerate()
+            .map(|(index, sample)| {
+                apply_white_balance_channel(
+                    apply_exposure_ev(*sample, exposure_ev),
+                    index,
+                    white_balance,
+                )
+            })
             .collect();
         let buffer = DecodedImageBuffer::linear_float(source.width(), source.height(), samples)
             .map_err(|error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error))?;
 
         Ok(CpuRenderResult { mode, buffer })
     }
+}
+
+#[derive(Clone, Copy)]
+struct WhiteBalance {
+    red: f32,
+    green: f32,
+    blue: f32,
+}
+
+fn white_balance_from_recipe(recipe: &Recipe) -> WhiteBalance {
+    let temperature_delta = recipe
+        .operations()
+        .iter()
+        .filter_map(temperature_delta_from_operation)
+        .sum::<f32>();
+    let tint_amount = recipe
+        .operations()
+        .iter()
+        .filter_map(tint_amount_from_operation)
+        .sum::<f32>();
+
+    WhiteBalance {
+        red: 1.0 + temperature_delta / 10_000.0,
+        green: 1.0 - tint_amount / 2_000.0,
+        blue: 1.0 - temperature_delta / 10_000.0,
+    }
+}
+
+fn apply_white_balance_channel(
+    sample: f32,
+    sample_index: usize,
+    white_balance: WhiteBalance,
+) -> f32 {
+    match sample_index % 3 {
+        0 => sample * white_balance.red,
+        1 => sample * white_balance.green,
+        _ => sample * white_balance.blue,
+    }
+}
+
+fn temperature_delta_from_operation(operation: &Value) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some("temperature") {
+        return None;
+    }
+    operation
+        .get("params")
+        .and_then(|params| params.get("kelvinDelta"))
+        .and_then(Value::as_f64)
+        .map(|value| value as f32)
+}
+
+fn tint_amount_from_operation(operation: &Value) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some("tint") {
+        return None;
+    }
+    operation
+        .get("params")
+        .and_then(|params| params.get("amount"))
+        .and_then(Value::as_f64)
+        .map(|value| value as f32)
 }
 
 fn exposure_ev_from_operation(operation: &Value) -> Option<f32> {
@@ -150,5 +218,19 @@ mod tests {
         assert_eq!(rendered.mode(), CpuRenderMode::Preview);
         assert_eq!(rendered.buffer().storage(), PixelStorage::LinearFloat32);
         assert_eq!(rendered.buffer().samples(), &[0.5]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_white_balance_temperature_and_tint() {
+        let source = DecodedImageBuffer::linear_float(1, 1, vec![1.0, 1.0, 1.0]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"temperature","params":{"kelvinDelta":1000}},{"type":"tint","params":{"amount":20}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_eq!(rendered.buffer().samples(), &[1.1, 0.99, 0.9]);
     }
 }

@@ -1,0 +1,37 @@
+struct DevelopParams {
+  exposure_multiplier: f32,
+  sample_count: u32,
+  red_multiplier: f32,
+  green_multiplier: f32,
+  blue_multiplier: f32,
+  _padding: u32,
+}
+
+@group(0) @binding(0)
+var<storage, read> input_samples: array<f32>;
+
+@group(0) @binding(1)
+var<storage, read_write> output_samples: array<f32>;
+
+@group(0) @binding(2)
+var<uniform> params: DevelopParams;
+
+fn white_balance_multiplier(index: u32) -> f32 {
+  let channel = index % 3u;
+  if (channel == 0u) {
+    return params.red_multiplier;
+  }
+  if (channel == 1u) {
+    return params.green_multiplier;
+  }
+  return params.blue_multiplier;
+}
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  let index = id.x;
+  if (index >= params.sample_count) {
+    return;
+  }
+  output_samples[index] = input_samples[index] * params.exposure_multiplier * white_balance_multiplier(index);
+}

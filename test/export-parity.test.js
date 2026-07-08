@@ -68,6 +68,14 @@ test("preview and export artifacts share the same external behavior signature fo
 
 test("preview and export call the same native pipeline command and preserve pixel identity", async () => {
   const { source, recipe } = await loadFixtures();
+  const whiteBalanceRecipe = {
+    ...recipe,
+    operations: [
+      { type: "temperature", params: { kelvinDelta: 450 } },
+      { type: "tint", params: { amount: -12 } },
+      ...recipe.operations,
+    ],
+  };
   const dir = await mkdtemp(path.join(tmpdir(), "photogenic-parity-png-"));
   const goldenPreviewBytes = await readFile(path.join(goldenDir, "exposure-preview.png"));
   const goldenExportBytes = await readFile(path.join(goldenDir, "exposure-export.png"));
@@ -86,7 +94,7 @@ test("preview and export call the same native pipeline command and preserve pixe
         contentHash: { algorithm: "sha256", value: createHash("sha256").update(payload).digest("hex") },
         pixelHash: { algorithm: "sha256", value: "native-linear-pixels-fixture-001" },
         sourceIdentity: { imageId: request.source.imageId, path: request.source.path, revision: request.source.revision },
-        recipeFingerprint: "native-recipe-fingerprint-fixture-001",
+        recipeFingerprint: `native-recipe-fingerprint-${request.recipe.operations.map((operation) => operation.type).join("-")}`,
       };
     },
   });
@@ -96,7 +104,7 @@ test("preview and export call the same native pipeline command and preserve pixe
   });
   const queued = previewWorkflow.requestPreview({
     source,
-    recipe,
+    recipe: whiteBalanceRecipe,
     viewport: { width: 1512, height: 1006 },
   });
   const previewReady = await previewWorkflow.fulfillPreview(queued);
@@ -106,7 +114,7 @@ test("preview and export call the same native pipeline command and preserve pixe
   const outputPath = path.join(dir, "fixture-001.png.json");
   const exported = await exportFoundation.writeArtifact(outputPath, {
     source,
-    recipe,
+    recipe: whiteBalanceRecipe,
     outputName: "fixture-001.png",
     options: { format: "png", quality: 95, resize: { width: 1512, height: 1006 } },
   });
@@ -115,6 +123,10 @@ test("preview and export call the same native pipeline command and preserve pixe
 
   assert.deepEqual(calls.map((call) => call.command), ["render_pipeline", "render_pipeline"]);
   assert.deepEqual(calls.map((call) => call.request.mode), ["preview", "export"]);
+  assert.deepEqual(calls.map((call) => call.request.recipe.operations.map((operation) => operation.type)), [
+    ["temperature", "tint", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", ...recipe.operations.map((operation) => operation.type)],
+  ]);
   assert.deepEqual(calls.map((call) => call.request.output), [
     { width: 1512, height: 1006, format: "png" },
     { width: 1512, height: 1006, format: "png" },

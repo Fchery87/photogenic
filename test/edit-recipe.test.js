@@ -48,6 +48,33 @@ test("withOperation appends a new operation without mutating the original", () =
   assert.deepEqual(next.operations, [{ type: "temperature", params: { kelvinDelta: 350 } }]);
 });
 
+test("validateRecipe accepts finite white balance temperature and tint params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [
+        { type: "temperature", params: { kelvinDelta: 450 } },
+        { type: "tint", params: { amount: -12 } },
+      ],
+    }).operations,
+    [
+      { type: "temperature", params: { kelvinDelta: 450 } },
+      { type: "tint", params: { amount: -12 } },
+    ],
+  );
+});
+
+test("validateRecipe rejects malformed white balance params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "temperature", params: { kelvinDelta: "warm" } }] }),
+    /kelvinDelta/i,
+  );
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "tint", params: { amount: null } }] }),
+    /amount/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [

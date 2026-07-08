@@ -6,19 +6,22 @@ use std::fmt;
 use std::sync::mpsc;
 use wgpu::util::DeviceExt;
 
-const EXPOSURE_SHADER: &str = include_str!("shaders/exposure.wgsl");
+const DEVELOP_SHADER: &str = include_str!("shaders/white_balance.wgsl");
 const WORKGROUP_SIZE: u32 = 64;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct ExposureParams {
+struct DevelopParams {
     multiplier: f32,
     sample_count: u32,
-    _padding: [u32; 2],
+    red_multiplier: f32,
+    green_multiplier: f32,
+    blue_multiplier: f32,
+    _padding: u32,
 }
 
-unsafe impl bytemuck::Zeroable for ExposureParams {}
-unsafe impl bytemuck::Pod for ExposureParams {}
+unsafe impl bytemuck::Zeroable for DevelopParams {}
+unsafe impl bytemuck::Pod for DevelopParams {}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct GpuPipeline;
@@ -108,10 +111,14 @@ impl GpuPipeline {
         })?;
         let buffer_size = (source.samples().len() * std::mem::size_of::<f32>()) as u64;
         let multiplier = 2.0_f32.powf(exposure_ev(recipe));
-        let params = ExposureParams {
+        let white_balance = white_balance_from_recipe(recipe);
+        let params = DevelopParams {
             multiplier,
             sample_count,
-            _padding: [0, 0],
+            red_multiplier: white_balance.red,
+            green_multiplier: white_balance.green,
+            blue_multiplier: white_balance.blue,
+            _padding: 0,
         };
 
         let input_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -138,8 +145,8 @@ impl GpuPipeline {
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("photogenic exposure shader"),
-            source: wgpu::ShaderSource::Wgsl(EXPOSURE_SHADER.into()),
+            label: Some("photogenic white balance shader"),
+            source: wgpu::ShaderSource::Wgsl(DEVELOP_SHADER.into()),
         });
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("photogenic exposure bind group layout"),
@@ -243,6 +250,54 @@ fn exposure_ev(recipe: &Recipe) -> f32 {
                 .map(|value| value as f32)
         })
         .sum()
+}
+
+#[derive(Clone, Copy)]
+struct WhiteBalance {
+    red: f32,
+    green: f32,
+    blue: f32,
+}
+
+fn white_balance_from_recipe(recipe: &Recipe) -> WhiteBalance {
+    let temperature_delta = recipe
+        .operations()
+        .iter()
+        .filter_map(temperature_delta_from_operation)
+        .sum::<f32>();
+    let tint_amount = recipe
+        .operations()
+        .iter()
+        .filter_map(tint_amount_from_operation)
+        .sum::<f32>();
+
+    WhiteBalance {
+        red: 1.0 + temperature_delta / 10_000.0,
+        green: 1.0 - tint_amount / 2_000.0,
+        blue: 1.0 - temperature_delta / 10_000.0,
+    }
+}
+
+fn temperature_delta_from_operation(operation: &Value) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some("temperature") {
+        return None;
+    }
+    operation
+        .get("params")
+        .and_then(|params| params.get("kelvinDelta"))
+        .and_then(Value::as_f64)
+        .map(|value| value as f32)
+}
+
+fn tint_amount_from_operation(operation: &Value) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some("tint") {
+        return None;
+    }
+    operation
+        .get("params")
+        .and_then(|params| params.get("amount"))
+        .and_then(Value::as_f64)
+        .map(|value| value as f32)
 }
 
 fn read_buffer(

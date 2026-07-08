@@ -59,6 +59,12 @@ function validateOperation(op, index) {
     throw new RangeError(`operation ${index} has unsupported type: ${String(op.type)}`);
   }
   if (!isPlainObject(op.params)) throw new TypeError(`operation ${index} params must be an object`);
+  if (op.type === "temperature" && !isFiniteNumber(op.params.kelvinDelta)) {
+    throw new TypeError(`operation ${index} params.kelvinDelta must be a finite number`);
+  }
+  if (op.type === "tint" && !isFiniteNumber(op.params.amount)) {
+    throw new TypeError(`operation ${index} params.amount must be a finite number`);
+  }
 }
 
 export function normalizeRecipe(recipe) {

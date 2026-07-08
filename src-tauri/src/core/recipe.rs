@@ -208,7 +208,41 @@ fn validate_operation(operation: &Value, index: usize) -> Result<(), RecipeError
         ));
     }
 
+    validate_operation_params(operation_type, object.get("params").unwrap(), index)?;
+
     Ok(())
+}
+
+fn validate_operation_params(
+    operation_type: &str,
+    params: &Value,
+    index: usize,
+) -> Result<(), RecipeError> {
+    let params = params.as_object().ok_or_else(|| {
+        RecipeError::new(
+            RecipeErrorKind::InvalidParams,
+            format!("operation {index} params must be an object"),
+        )
+    })?;
+    match operation_type {
+        "temperature" => validate_required_number(params, "kelvinDelta", index),
+        "tint" => validate_required_number(params, "amount", index),
+        _ => Ok(()),
+    }
+}
+
+fn validate_required_number(
+    params: &Map<String, Value>,
+    field: &str,
+    index: usize,
+) -> Result<(), RecipeError> {
+    match params.get(field).and_then(Value::as_f64) {
+        Some(value) if value.is_finite() => Ok(()),
+        _ => Err(RecipeError::new(
+            RecipeErrorKind::InvalidParams,
+            format!("operation {index} params.{field} must be a finite number"),
+        )),
+    }
 }
 
 fn recipe_version_number(number: &serde_json::Number) -> Result<u64, RecipeError> {
@@ -503,6 +537,31 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_white_balance_temperature_and_tint_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"temperature","params":{"kelvinDelta":450}},{"type":"tint","params":{"amount":-12}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["temperature", "tint"]);
+    }
+
+    #[test]
+    fn rejects_malformed_white_balance_params() {
+        let temperature = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"temperature","params":{"kelvinDelta":"warm"}}]}"#,
+        )
+        .unwrap_err();
+        let tint = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"tint","params":{"amount":null}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(temperature.kind(), RecipeErrorKind::InvalidParams);
+        assert_eq!(tint.kind(), RecipeErrorKind::InvalidParams);
     }
 
     #[test]
