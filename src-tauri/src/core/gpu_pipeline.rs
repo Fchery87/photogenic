@@ -26,6 +26,7 @@ struct DevelopParams {
     red_hsl_hue: f32,
     red_hsl_saturation: f32,
     red_hsl_luminance: f32,
+    sharpen_amount: f32,
     _padding: u32,
 }
 
@@ -125,6 +126,7 @@ impl GpuPipeline {
         let tone_ranges = tone_ranges_from_recipe(recipe);
         let tone_curve = tone_curve_from_recipe(recipe);
         let red_hsl = red_hsl_from_recipe(recipe);
+        let sharpen_amount = sharpening_amount_from_recipe(recipe);
         let params = DevelopParams {
             multiplier,
             sample_count,
@@ -140,6 +142,7 @@ impl GpuPipeline {
             red_hsl_hue: red_hsl.hue,
             red_hsl_saturation: red_hsl.saturation,
             red_hsl_luminance: red_hsl.luminance,
+            sharpen_amount,
             _padding: 0,
         };
 
@@ -369,6 +372,14 @@ fn amount_from_operation(operation: &Value, operation_type: &str) -> Option<f32>
         .and_then(|params| params.get("amount"))
         .and_then(Value::as_f64)
         .map(|value| value as f32)
+}
+
+fn sharpening_amount_from_recipe(recipe: &Recipe) -> f32 {
+    recipe
+        .operations()
+        .iter()
+        .filter_map(|operation| amount_from_operation(operation, "sharpen"))
+        .sum()
 }
 
 #[derive(Clone, Copy)]

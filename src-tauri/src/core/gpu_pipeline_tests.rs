@@ -114,3 +114,19 @@ fn gpu_hsl_matches_cpu_for_red_rgb_samples() {
         &[0.9, 0.36, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
     );
 }
+
+#[test]
+fn gpu_sharpening_matches_cpu_for_linear_samples() {
+    let source = DecodedImageBuffer::linear_float(1, 3, vec![0.25, 0.5, 0.75]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"sharpen","params":{"amount":20}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.2, 0.5, 0.8]);
+}

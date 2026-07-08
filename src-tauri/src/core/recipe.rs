@@ -14,6 +14,7 @@ const ALLOWED_OPERATION_TYPES: &[&str] = &[
     "blacks",
     "toneCurve",
     "hsl",
+    "sharpen",
     "temperature",
     "tint",
     "crop",
@@ -231,7 +232,7 @@ fn validate_operation_params(
     match operation_type {
         "temperature" => validate_required_number(params, "kelvinDelta", index),
         "tint" => validate_required_number(params, "amount", index),
-        "contrast" | "highlights" | "shadows" | "whites" | "blacks" => {
+        "contrast" | "highlights" | "shadows" | "whites" | "blacks" | "sharpen" => {
             validate_required_number(params, "amount", index)
         }
         "toneCurve" => validate_constrained_tone_curve(params, index),
@@ -732,6 +733,26 @@ mod tests {
 
         assert_eq!(unsupported_range.kind(), RecipeErrorKind::InvalidParams);
         assert_eq!(non_numeric.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_sharpen_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"sharpen","params":{"amount":20}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["sharpen"]);
+    }
+
+    #[test]
+    fn rejects_malformed_sharpen_params() {
+        let error = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"sharpen","params":{"amount":"crisp"}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
     }
 
     #[test]

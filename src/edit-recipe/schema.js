@@ -10,6 +10,7 @@ export const ALLOWED_OPERATION_TYPES = new Set([
   "blacks",
   "toneCurve",
   "hsl",
+  "sharpen",
   "temperature",
   "tint",
   "crop",
@@ -83,6 +84,9 @@ function validateOperation(op, index) {
   }
   if (op.type === "hsl" && !isRedHslAdjustment(op.params)) {
     throw new TypeError(`operation ${index} hsl params must target red with finite hue, saturation, and luminance`);
+  }
+  if (op.type === "sharpen" && !isFiniteNumber(op.params.amount)) {
+    throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
 }
 

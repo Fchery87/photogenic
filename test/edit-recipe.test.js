@@ -163,6 +163,23 @@ test("validateRecipe rejects malformed HSL params", () => {
   );
 });
 
+test("validateRecipe accepts finite sharpening params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [{ type: "sharpen", params: { amount: 20 } }],
+    }).operations,
+    [{ type: "sharpen", params: { amount: 20 } }],
+  );
+});
+
+test("validateRecipe rejects malformed sharpening params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "sharpen", params: { amount: "crisp" } }] }),
+    /amount/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -210,6 +227,7 @@ test("allowed operation list covers the foundation set", () => {
     "blacks",
     "toneCurve",
     "hsl",
+    "sharpen",
     "temperature",
     "tint",
     "crop",

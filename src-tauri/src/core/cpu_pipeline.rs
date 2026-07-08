@@ -90,6 +90,7 @@ impl CpuPipeline {
         let tone_ranges = tone_ranges_from_recipe(recipe);
         let tone_curve = tone_curve_from_recipe(recipe);
         let red_hsl = red_hsl_from_recipe(recipe);
+        let sharpening_amount = sharpening_amount_from_recipe(recipe);
         let developed_samples: Vec<f32> = source
             .samples()
             .iter()
@@ -111,12 +112,27 @@ impl CpuPipeline {
                 )
             })
             .collect();
-        let samples = apply_red_hsl_samples(source.samples(), &developed_samples, red_hsl);
+        let samples = apply_red_hsl_samples(source.samples(), &developed_samples, red_hsl)
+            .into_iter()
+            .map(|sample| apply_sharpening(sample, sharpening_amount))
+            .collect();
         let buffer = DecodedImageBuffer::linear_float(source.width(), source.height(), samples)
             .map_err(|error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error))?;
 
         Ok(CpuRenderResult { mode, buffer })
     }
+}
+
+fn sharpening_amount_from_recipe(recipe: &Recipe) -> f32 {
+    recipe
+        .operations()
+        .iter()
+        .filter_map(|operation| amount_from_operation(operation, "sharpen"))
+        .sum()
+}
+
+fn apply_sharpening(sample: f32, amount: f32) -> f32 {
+    sample + amount / 100.0 * (sample - 0.5)
 }
 
 #[derive(Clone, Copy)]
@@ -508,5 +524,19 @@ mod tests {
             rendered.buffer().samples(),
             &[0.9, 0.36, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
         );
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_sharpening_detail_boost() {
+        let source = DecodedImageBuffer::linear_float(1, 3, vec![0.25, 0.5, 0.75]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"sharpen","params":{"amount":20}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_samples_close(rendered.buffer().samples(), &[0.2, 0.5, 0.8]);
     }
 }

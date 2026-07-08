@@ -13,6 +13,7 @@ struct DevelopParams {
   red_hsl_hue: f32,
   red_hsl_saturation: f32,
   red_hsl_luminance: f32,
+  sharpen_amount: f32,
   _padding: u32,
 }
 
@@ -92,6 +93,10 @@ fn apply_red_hsl_channel(sample: f32, index: u32) -> f32 {
   return sample;
 }
 
+fn apply_sharpening(sample: f32) -> f32 {
+  return sample + params.sharpen_amount / 100.0 * (sample - 0.5);
+}
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   let index = id.x;
@@ -101,5 +106,5 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   let exposed = input_samples[index] * params.exposure_multiplier;
   let balanced = exposed * white_balance_multiplier(index);
   let toned = apply_tone_curve(apply_tone_ranges(apply_contrast(balanced)));
-  output_samples[index] = apply_red_hsl_channel(toned, index);
+  output_samples[index] = apply_sharpening(apply_red_hsl_channel(toned, index));
 }
