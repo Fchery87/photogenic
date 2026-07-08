@@ -6,6 +6,8 @@ export const ALLOWED_OPERATION_TYPES = new Set([
   "contrast",
   "highlights",
   "shadows",
+  "whites",
+  "blacks",
   "temperature",
   "tint",
   "crop",
@@ -66,6 +68,12 @@ function validateOperation(op, index) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
   if (op.type === "contrast" && !isFiniteNumber(op.params.amount)) {
+    throw new TypeError(`operation ${index} params.amount must be a finite number`);
+  }
+  if (
+    ["highlights", "shadows", "whites", "blacks"].includes(op.type) &&
+    !isFiniteNumber(op.params.amount)
+  ) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
 }

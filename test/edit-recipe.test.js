@@ -92,6 +92,35 @@ test("validateRecipe rejects malformed contrast params", () => {
   );
 });
 
+test("validateRecipe accepts finite tone range params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [
+        { type: "highlights", params: { amount: -10 } },
+        { type: "shadows", params: { amount: 20 } },
+        { type: "whites", params: { amount: 10 } },
+        { type: "blacks", params: { amount: -20 } },
+      ],
+    }).operations,
+    [
+      { type: "highlights", params: { amount: -10 } },
+      { type: "shadows", params: { amount: 20 } },
+      { type: "whites", params: { amount: 10 } },
+      { type: "blacks", params: { amount: -20 } },
+    ],
+  );
+});
+
+test("validateRecipe rejects malformed tone range params", () => {
+  for (const type of ["highlights", "shadows", "whites", "blacks"]) {
+    assert.throws(
+      () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type, params: { amount: "bad" } }] }),
+      /amount/i,
+    );
+  }
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -135,6 +164,8 @@ test("allowed operation list covers the foundation set", () => {
     "contrast",
     "highlights",
     "shadows",
+    "whites",
+    "blacks",
     "temperature",
     "tint",
     "crop",

@@ -61,3 +61,19 @@ fn gpu_contrast_matches_cpu_contrast_for_linear_samples() {
     assert_samples_close(actual.samples(), expected.buffer().samples());
     assert_samples_close(actual.samples(), &[0.05, 0.19999999, 0.5, 0.95000005]);
 }
+
+#[test]
+fn gpu_tone_range_controls_match_cpu_for_linear_samples() {
+    let source = DecodedImageBuffer::linear_float(1, 5, vec![0.1, 0.25, 0.5, 0.75, 0.9]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"shadows","params":{"amount":20}},{"type":"blacks","params":{"amount":-20}},{"type":"highlights","params":{"amount":-10}},{"type":"whites","params":{"amount":10}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.166, 0.3, 0.5, 0.725, 0.901]);
+}

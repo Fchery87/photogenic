@@ -87,18 +87,22 @@ impl CpuPipeline {
             .sum::<f32>();
         let white_balance = white_balance_from_recipe(recipe);
         let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
+        let tone_ranges = tone_ranges_from_recipe(recipe);
         let samples = source
             .samples()
             .iter()
             .enumerate()
             .map(|(index, sample)| {
-                apply_contrast(
-                    apply_white_balance_channel(
-                        apply_exposure_ev(*sample, exposure_ev),
-                        index,
-                        white_balance,
+                apply_tone_ranges(
+                    apply_contrast(
+                        apply_white_balance_channel(
+                            apply_exposure_ev(*sample, exposure_ev),
+                            index,
+                            white_balance,
+                        ),
+                        contrast_multiplier,
                     ),
-                    contrast_multiplier,
+                    tone_ranges,
                 )
             })
             .collect();
@@ -106,6 +110,54 @@ impl CpuPipeline {
             .map_err(|error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error))?;
 
         Ok(CpuRenderResult { mode, buffer })
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ToneRanges {
+    highlights: f32,
+    shadows: f32,
+    whites: f32,
+    blacks: f32,
+}
+
+fn tone_ranges_from_recipe(recipe: &Recipe) -> ToneRanges {
+    ToneRanges {
+        highlights: tone_range_amount_from_recipe(recipe, "highlights"),
+        shadows: tone_range_amount_from_recipe(recipe, "shadows"),
+        whites: tone_range_amount_from_recipe(recipe, "whites"),
+        blacks: tone_range_amount_from_recipe(recipe, "blacks"),
+    }
+}
+
+fn tone_range_amount_from_recipe(recipe: &Recipe, operation_type: &str) -> f32 {
+    recipe
+        .operations()
+        .iter()
+        .filter_map(|operation| amount_from_operation(operation, operation_type))
+        .sum()
+}
+
+fn apply_tone_ranges(sample: f32, tone_ranges: ToneRanges) -> f32 {
+    let with_shadows = if sample < 0.5 {
+        sample + tone_ranges.shadows / 100.0 * (0.5 - sample)
+    } else {
+        sample
+    };
+    let with_blacks = if with_shadows < 0.25 {
+        with_shadows + tone_ranges.blacks / 100.0 * (0.25 - with_shadows)
+    } else {
+        with_shadows
+    };
+    let with_highlights = if with_blacks > 0.5 {
+        with_blacks + tone_ranges.highlights / 100.0 * (1.0 - with_blacks)
+    } else {
+        with_blacks
+    };
+    if with_highlights > 0.75 {
+        with_highlights + tone_ranges.whites / 100.0 * (1.0 - with_highlights)
+    } else {
+        with_highlights
     }
 }
 
@@ -161,7 +213,11 @@ fn apply_contrast(sample: f32, multiplier: f32) -> f32 {
 }
 
 fn contrast_amount_from_operation(operation: &Value) -> Option<f32> {
-    if operation.get("type").and_then(Value::as_str) != Some("contrast") {
+    amount_from_operation(operation, "contrast")
+}
+
+fn amount_from_operation(operation: &Value, operation_type: &str) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some(operation_type) {
         return None;
     }
     operation
@@ -209,6 +265,16 @@ mod tests {
     use super::{CpuPipeline, CpuRenderMode};
     use crate::core::image_buffer::{DecodedImageBuffer, PixelStorage};
     use crate::core::recipe::Recipe;
+
+    fn assert_samples_close(actual: &[f32], expected: &[f32]) {
+        assert_eq!(actual.len(), expected.len());
+        for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
+            assert!(
+                (actual - expected).abs() <= 0.0001,
+                "sample {index}: expected {expected}, got {actual}"
+            );
+        }
+    }
 
     #[test]
     fn scene_linear_buffer_stores_float_channels() {
@@ -274,5 +340,23 @@ mod tests {
             .unwrap();
 
         assert_eq!(rendered.buffer().samples(), &[0.19999999, 0.5, 0.8]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_tone_range_controls() {
+        let source =
+            DecodedImageBuffer::linear_float(1, 5, vec![0.1, 0.25, 0.5, 0.75, 0.9]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"shadows","params":{"amount":20}},{"type":"blacks","params":{"amount":-20}},{"type":"highlights","params":{"amount":-10}},{"type":"whites","params":{"amount":10}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_samples_close(
+            rendered.buffer().samples(),
+            &[0.166, 0.3, 0.5, 0.725, 0.901],
+        );
     }
 }

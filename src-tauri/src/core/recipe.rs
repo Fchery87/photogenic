@@ -10,6 +10,8 @@ const ALLOWED_OPERATION_TYPES: &[&str] = &[
     "contrast",
     "highlights",
     "shadows",
+    "whites",
+    "blacks",
     "temperature",
     "tint",
     "crop",
@@ -227,7 +229,9 @@ fn validate_operation_params(
     match operation_type {
         "temperature" => validate_required_number(params, "kelvinDelta", index),
         "tint" => validate_required_number(params, "amount", index),
-        "contrast" => validate_required_number(params, "amount", index),
+        "contrast" | "highlights" | "shadows" | "whites" | "blacks" => {
+            validate_required_number(params, "amount", index)
+        }
         _ => Ok(()),
     }
 }
@@ -583,6 +587,31 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_tone_range_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"highlights","params":{"amount":-10}},{"type":"shadows","params":{"amount":20}},{"type":"whites","params":{"amount":10}},{"type":"blacks","params":{"amount":-20}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            recipe.operation_types(),
+            vec!["highlights", "shadows", "whites", "blacks"]
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_tone_range_params() {
+        for operation_type in ["highlights", "shadows", "whites", "blacks"] {
+            let error = Recipe::from_json_str(&format!(
+                r#"{{"version":1,"operations":[{{"type":"{operation_type}","params":{{"amount":"bad"}}}}]}}"#
+            ))
+            .unwrap_err();
+
+            assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
+        }
     }
 
     #[test]

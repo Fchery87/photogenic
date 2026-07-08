@@ -18,6 +18,10 @@ struct DevelopParams {
     green_multiplier: f32,
     blue_multiplier: f32,
     contrast_multiplier: f32,
+    highlights_amount: f32,
+    shadows_amount: f32,
+    whites_amount: f32,
+    blacks_amount: f32,
     _padding: u32,
 }
 
@@ -114,6 +118,7 @@ impl GpuPipeline {
         let multiplier = 2.0_f32.powf(exposure_ev(recipe));
         let white_balance = white_balance_from_recipe(recipe);
         let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
+        let tone_ranges = tone_ranges_from_recipe(recipe);
         let params = DevelopParams {
             multiplier,
             sample_count,
@@ -121,6 +126,10 @@ impl GpuPipeline {
             green_multiplier: white_balance.green,
             blue_multiplier: white_balance.blue,
             contrast_multiplier,
+            highlights_amount: tone_ranges.highlights,
+            shadows_amount: tone_ranges.shadows,
+            whites_amount: tone_ranges.whites,
+            blacks_amount: tone_ranges.blacks,
             _padding: 0,
         };
 
@@ -313,7 +322,36 @@ fn contrast_multiplier_from_recipe(recipe: &Recipe) -> f32 {
 }
 
 fn contrast_amount_from_operation(operation: &Value) -> Option<f32> {
-    if operation.get("type").and_then(Value::as_str) != Some("contrast") {
+    amount_from_operation(operation, "contrast")
+}
+
+#[derive(Clone, Copy)]
+struct ToneRanges {
+    highlights: f32,
+    shadows: f32,
+    whites: f32,
+    blacks: f32,
+}
+
+fn tone_ranges_from_recipe(recipe: &Recipe) -> ToneRanges {
+    ToneRanges {
+        highlights: tone_range_amount_from_recipe(recipe, "highlights"),
+        shadows: tone_range_amount_from_recipe(recipe, "shadows"),
+        whites: tone_range_amount_from_recipe(recipe, "whites"),
+        blacks: tone_range_amount_from_recipe(recipe, "blacks"),
+    }
+}
+
+fn tone_range_amount_from_recipe(recipe: &Recipe, operation_type: &str) -> f32 {
+    recipe
+        .operations()
+        .iter()
+        .filter_map(|operation| amount_from_operation(operation, operation_type))
+        .sum()
+}
+
+fn amount_from_operation(operation: &Value, operation_type: &str) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some(operation_type) {
         return None;
     }
     operation
