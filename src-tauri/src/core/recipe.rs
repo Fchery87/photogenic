@@ -227,6 +227,7 @@ fn validate_operation_params(
     match operation_type {
         "temperature" => validate_required_number(params, "kelvinDelta", index),
         "tint" => validate_required_number(params, "amount", index),
+        "contrast" => validate_required_number(params, "amount", index),
         _ => Ok(()),
     }
 }
@@ -562,6 +563,26 @@ mod tests {
 
         assert_eq!(temperature.kind(), RecipeErrorKind::InvalidParams);
         assert_eq!(tint.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_contrast_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"contrast","params":{"amount":25}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["contrast"]);
+    }
+
+    #[test]
+    fn rejects_malformed_contrast_params() {
+        let error = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"contrast","params":{"amount":"punchy"}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
     }
 
     #[test]

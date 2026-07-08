@@ -45,3 +45,19 @@ fn gpu_white_balance_matches_cpu_white_balance_for_linear_rgb_samples() {
 
     assert_samples_close(actual.samples(), expected.buffer().samples());
 }
+
+#[test]
+fn gpu_contrast_matches_cpu_contrast_for_linear_samples() {
+    let source = DecodedImageBuffer::linear_float(2, 2, vec![0.125, 0.25, 0.5, 0.875]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"contrast","params":{"amount":20}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.05, 0.19999999, 0.5, 0.95000005]);
+}

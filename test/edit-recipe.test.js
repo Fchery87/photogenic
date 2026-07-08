@@ -75,6 +75,23 @@ test("validateRecipe rejects malformed white balance params", () => {
   );
 });
 
+test("validateRecipe accepts finite contrast params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [{ type: "contrast", params: { amount: 25 } }],
+    }).operations,
+    [{ type: "contrast", params: { amount: 25 } }],
+  );
+});
+
+test("validateRecipe rejects malformed contrast params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "contrast", params: { amount: "punchy" } }] }),
+    /amount/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -139,7 +156,7 @@ test("normalizeRecipe rejects unsupported non-JSON values instead of silently co
   );
   assert.throws(
     () => normalizeRecipe({ operations: [{ type: "contrast", params: { amount: undefined } }] }),
-    /non-JSON value/i,
+    /finite number|non-JSON value/i,
   );
   assert.throws(
     () => normalizeRecipe({ operations: [{ type: "crop", params: { w: 1n } }] }),

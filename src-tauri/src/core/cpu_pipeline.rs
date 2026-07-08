@@ -86,15 +86,19 @@ impl CpuPipeline {
             .filter_map(exposure_ev_from_operation)
             .sum::<f32>();
         let white_balance = white_balance_from_recipe(recipe);
+        let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
         let samples = source
             .samples()
             .iter()
             .enumerate()
             .map(|(index, sample)| {
-                apply_white_balance_channel(
-                    apply_exposure_ev(*sample, exposure_ev),
-                    index,
-                    white_balance,
+                apply_contrast(
+                    apply_white_balance_channel(
+                        apply_exposure_ev(*sample, exposure_ev),
+                        index,
+                        white_balance,
+                    ),
+                    contrast_multiplier,
                 )
             })
             .collect();
@@ -141,6 +145,30 @@ fn apply_white_balance_channel(
         1 => sample * white_balance.green,
         _ => sample * white_balance.blue,
     }
+}
+
+fn contrast_multiplier_from_recipe(recipe: &Recipe) -> f32 {
+    1.0 + recipe
+        .operations()
+        .iter()
+        .filter_map(contrast_amount_from_operation)
+        .sum::<f32>()
+        / 100.0
+}
+
+fn apply_contrast(sample: f32, multiplier: f32) -> f32 {
+    (sample - 0.5) * multiplier + 0.5
+}
+
+fn contrast_amount_from_operation(operation: &Value) -> Option<f32> {
+    if operation.get("type").and_then(Value::as_str) != Some("contrast") {
+        return None;
+    }
+    operation
+        .get("params")
+        .and_then(|params| params.get("amount"))
+        .and_then(Value::as_f64)
+        .map(|value| value as f32)
 }
 
 fn temperature_delta_from_operation(operation: &Value) -> Option<f32> {
@@ -232,5 +260,19 @@ mod tests {
             .unwrap();
 
         assert_eq!(rendered.buffer().samples(), &[1.1, 0.99, 0.9]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_contrast_around_midgray() {
+        let source = DecodedImageBuffer::linear_float(1, 3, vec![0.25, 0.5, 0.75]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"contrast","params":{"amount":20}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_eq!(rendered.buffer().samples(), &[0.19999999, 0.5, 0.8]);
     }
 }
