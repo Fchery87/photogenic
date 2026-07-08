@@ -82,6 +82,9 @@ test("preview and export call the same native pipeline command and preserve pixe
       { type: "hsl", params: { range: "red", hue: 30, saturation: 20, luminance: -10 } },
       { type: "sharpen", params: { amount: 20 } },
       { type: "noiseReduction", params: { amount: 20 } },
+      { type: "crop", params: { x: 0.25, y: 0, w: 0.5, h: 1 } },
+      { type: "rotate", params: { degrees: 90 } },
+      { type: "straighten", params: { angle: -1.5 } },
       ...recipe.operations,
     ],
   };
@@ -133,8 +136,8 @@ test("preview and export call the same native pipeline command and preserve pixe
   assert.deepEqual(calls.map((call) => call.command), ["render_pipeline", "render_pipeline"]);
   assert.deepEqual(calls.map((call) => call.request.mode), ["preview", "export"]);
   assert.deepEqual(calls.map((call) => call.request.recipe.operations.map((operation) => operation.type)), [
-    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", "noiseReduction", ...recipe.operations.map((operation) => operation.type)],
-    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", "noiseReduction", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", "noiseReduction", "crop", "rotate", "straighten", ...recipe.operations.map((operation) => operation.type)],
+    ["temperature", "tint", "contrast", "highlights", "shadows", "whites", "blacks", "toneCurve", "hsl", "sharpen", "noiseReduction", "crop", "rotate", "straighten", ...recipe.operations.map((operation) => operation.type)],
   ]);
   assert.deepEqual(calls.map((call) => call.request.output), [
     { width: 1512, height: 1006, format: "png" },

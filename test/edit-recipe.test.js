@@ -197,6 +197,39 @@ test("validateRecipe rejects malformed noise reduction params", () => {
   );
 });
 
+test("validateRecipe accepts finite crop rotate and straighten params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [
+        { type: "crop", params: { x: 0.25, y: 0, w: 0.5, h: 1 } },
+        { type: "rotate", params: { degrees: 90 } },
+        { type: "straighten", params: { angle: -1.5 } },
+      ],
+    }).operations,
+    [
+      { type: "crop", params: { x: 0.25, y: 0, w: 0.5, h: 1 } },
+      { type: "rotate", params: { degrees: 90 } },
+      { type: "straighten", params: { angle: -1.5 } },
+    ],
+  );
+});
+
+test("validateRecipe rejects malformed transform params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "crop", params: { x: 0, y: 0, w: 0, h: 1 } }] }),
+    /crop/i,
+  );
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "rotate", params: { degrees: 45 } }] }),
+    /rotate/i,
+  );
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "straighten", params: { angle: "level" } }] }),
+    /angle/i,
+  );
+});
+
 test("subsetRecipe supports Batch Sync subsets by operation type", () => {
   const recipe = createRecipe({
     operations: [
@@ -249,6 +282,7 @@ test("allowed operation list covers the foundation set", () => {
     "temperature",
     "tint",
     "crop",
+    "rotate",
     "straighten",
     "mask",
   ]) {

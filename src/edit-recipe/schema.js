@@ -15,6 +15,7 @@ export const ALLOWED_OPERATION_TYPES = new Set([
   "temperature",
   "tint",
   "crop",
+  "rotate",
   "straighten",
   "mask",
 ]);
@@ -92,6 +93,15 @@ function validateOperation(op, index) {
   if (op.type === "noiseReduction" && !isFiniteNumber(op.params.amount)) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
+  if (op.type === "crop" && !isValidCrop(op.params)) {
+    throw new TypeError(`operation ${index} crop params must be finite normalized x, y, w, and h`);
+  }
+  if (op.type === "rotate" && !isRightAngleRotation(op.params.degrees)) {
+    throw new TypeError(`operation ${index} rotate degrees must be 0, 90, 180, or 270`);
+  }
+  if (op.type === "straighten" && !isFiniteNumber(op.params.angle)) {
+    throw new TypeError(`operation ${index} params.angle must be a finite number`);
+  }
 }
 
 function isConstrainedToneCurve(points) {
@@ -116,6 +126,27 @@ function isRedHslAdjustment(params) {
   );
 }
 
+function isValidCrop(params) {
+  const width = params.w ?? params.width;
+  const height = params.h ?? params.height;
+  return (
+    isFiniteNumber(params.x) &&
+    isFiniteNumber(params.y) &&
+    isFiniteNumber(width) &&
+    isFiniteNumber(height) &&
+    params.x >= 0 &&
+    params.y >= 0 &&
+    width > 0 &&
+    height > 0 &&
+    params.x + width <= 1 &&
+    params.y + height <= 1
+  );
+}
+
+function isRightAngleRotation(degrees) {
+  return isFiniteNumber(degrees) && [0, 90, 180, 270, -90, -180, -270].includes(degrees);
+}
+
 export function normalizeRecipe(recipe) {
   if (!isPlainObject(recipe)) throw new TypeError("recipe must be an object");
 
@@ -128,11 +159,12 @@ export function normalizeRecipe(recipe) {
 
   const operations = recipe.operations ?? [];
   if (!Array.isArray(operations)) throw new TypeError("recipe.operations must be an array");
-  operations.forEach(validateOperation);
+  const normalizedOperations = cloneJsonValue(operations, "recipe.operations");
+  normalizedOperations.forEach(validateOperation);
 
   return {
     version: RECIPE_SCHEMA_VERSION,
-    operations: cloneJsonValue(operations, "recipe.operations"),
+    operations: normalizedOperations,
     meta: isPlainObject(recipe.meta) ? cloneJsonValue(recipe.meta, "recipe.meta") : {},
   };
 }

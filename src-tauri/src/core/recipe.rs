@@ -19,6 +19,7 @@ const ALLOWED_OPERATION_TYPES: &[&str] = &[
     "temperature",
     "tint",
     "crop",
+    "rotate",
     "straighten",
     "mask",
 ];
@@ -237,8 +238,36 @@ fn validate_operation_params(
         | "noiseReduction" => validate_required_number(params, "amount", index),
         "toneCurve" => validate_constrained_tone_curve(params, index),
         "hsl" => validate_red_hsl_adjustment(params, index),
+        "crop" => validate_crop(params, index),
+        "rotate" => validate_rotate(params, index),
+        "straighten" => validate_required_number(params, "angle", index),
         _ => Ok(()),
     }
+}
+
+fn validate_crop(params: &Map<String, Value>, index: usize) -> Result<(), RecipeError> {
+    let x = required_finite_number(params, "x", index)?;
+    let y = required_finite_number(params, "y", index)?;
+    let w = required_finite_number_alias(params, "w", "width", index)?;
+    let h = required_finite_number_alias(params, "h", "height", index)?;
+    if x >= 0.0 && y >= 0.0 && w > 0.0 && h > 0.0 && x + w <= 1.0 && y + h <= 1.0 {
+        return Ok(());
+    }
+    Err(invalid_params(
+        index,
+        "crop params must be finite normalized x, y, w, and h",
+    ))
+}
+
+fn validate_rotate(params: &Map<String, Value>, index: usize) -> Result<(), RecipeError> {
+    let degrees = required_finite_number(params, "degrees", index)?;
+    if [0.0, 90.0, 180.0, 270.0, -90.0, -180.0, -270.0].contains(&degrees) {
+        return Ok(());
+    }
+    Err(invalid_params(
+        index,
+        "rotate degrees must be 0, 90, 180, or 270",
+    ))
 }
 
 fn validate_red_hsl_adjustment(
@@ -307,18 +336,45 @@ fn invalid_tone_curve(index: usize) -> RecipeError {
     )
 }
 
-fn validate_required_number(
+fn required_finite_number(
     params: &Map<String, Value>,
     field: &str,
     index: usize,
-) -> Result<(), RecipeError> {
+) -> Result<f64, RecipeError> {
     match params.get(field).and_then(Value::as_f64) {
-        Some(value) if value.is_finite() => Ok(()),
+        Some(value) if value.is_finite() => Ok(value),
         _ => Err(RecipeError::new(
             RecipeErrorKind::InvalidParams,
             format!("operation {index} params.{field} must be a finite number"),
         )),
     }
+}
+
+fn required_finite_number_alias(
+    params: &Map<String, Value>,
+    primary: &str,
+    alias: &str,
+    index: usize,
+) -> Result<f64, RecipeError> {
+    if params.contains_key(primary) {
+        return required_finite_number(params, primary, index);
+    }
+    required_finite_number(params, alias, index)
+}
+
+fn invalid_params(index: usize, message: &str) -> RecipeError {
+    RecipeError::new(
+        RecipeErrorKind::InvalidParams,
+        format!("operation {index} {message}"),
+    )
+}
+
+fn validate_required_number(
+    params: &Map<String, Value>,
+    field: &str,
+    index: usize,
+) -> Result<(), RecipeError> {
+    required_finite_number(params, field, index).map(|_| ())
 }
 
 fn recipe_version_number(number: &serde_json::Number) -> Result<u64, RecipeError> {
@@ -773,6 +829,42 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(error.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_crop_rotate_and_straighten_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"crop","params":{"x":0.25,"y":0,"w":0.5,"h":1}},{"type":"rotate","params":{"degrees":90}},{"type":"straighten","params":{"angle":-1.5}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            recipe.operation_types(),
+            vec!["crop", "rotate", "straighten"]
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_transform_params() {
+        let empty_crop = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"crop","params":{"x":0,"y":0,"w":0,"h":1}}]}"#,
+        )
+        .unwrap_err();
+        let unsupported_rotate = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"rotate","params":{"degrees":45}}]}"#,
+        )
+        .unwrap_err();
+        let non_numeric_straighten = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"straighten","params":{"angle":"level"}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(empty_crop.kind(), RecipeErrorKind::InvalidParams);
+        assert_eq!(unsupported_rotate.kind(), RecipeErrorKind::InvalidParams);
+        assert_eq!(
+            non_numeric_straighten.kind(),
+            RecipeErrorKind::InvalidParams
+        );
     }
 
     #[test]

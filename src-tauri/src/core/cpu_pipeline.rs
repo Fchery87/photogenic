@@ -1,6 +1,7 @@
 use crate::core::color::apply_exposure_ev;
 use crate::core::image_buffer::DecodedImageBuffer;
 use crate::core::recipe::Recipe;
+use crate::core::transform::apply_recipe_transforms;
 use serde_json::Value;
 use std::error::Error;
 use std::fmt;
@@ -118,7 +119,11 @@ impl CpuPipeline {
             .map(|sample| apply_sharpening(sample, sharpening_amount))
             .map(|sample| apply_noise_reduction(sample, noise_reduction_amount))
             .collect();
-        let buffer = DecodedImageBuffer::linear_float(source.width(), source.height(), samples)
+        let developed_buffer =
+            DecodedImageBuffer::linear_float(source.width(), source.height(), samples).map_err(
+                |error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error),
+            )?;
+        let buffer = apply_recipe_transforms(&developed_buffer, recipe)
             .map_err(|error| CpuPipelineError::new(CpuPipelineErrorKind::InvalidOutput, error))?;
 
         Ok(CpuRenderResult { mode, buffer })
@@ -566,5 +571,56 @@ mod tests {
             .unwrap();
 
         assert_samples_close(rendered.buffer().samples(), &[0.3, 0.5, 0.7]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_normalized_crop() {
+        let source =
+            DecodedImageBuffer::linear_float(4, 2, vec![0.0, 0.1, 0.2, 0.3, 1.0, 1.1, 1.2, 1.3])
+                .unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"crop","params":{"x":0.25,"y":0,"w":0.5,"h":1}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_eq!(rendered.buffer().width(), 2);
+        assert_eq!(rendered.buffer().height(), 2);
+        assert_samples_close(rendered.buffer().samples(), &[0.1, 0.2, 1.1, 1.2]);
+    }
+
+    #[test]
+    fn cpu_pipeline_applies_right_angle_rotation() {
+        let source =
+            DecodedImageBuffer::linear_float(2, 3, vec![0.0, 0.1, 1.0, 1.1, 2.0, 2.1]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"rotate","params":{"degrees":90}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_eq!(rendered.buffer().width(), 3);
+        assert_eq!(rendered.buffer().height(), 2);
+        assert_samples_close(rendered.buffer().samples(), &[2.0, 1.0, 0.0, 2.1, 1.1, 0.1]);
+    }
+
+    #[test]
+    fn cpu_pipeline_validates_straighten_as_noop_transform() {
+        let source = DecodedImageBuffer::linear_float(2, 2, vec![0.0, 0.1, 1.0, 1.1]).unwrap();
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"straighten","params":{"angle":-1.5}}]}"#,
+        )
+        .unwrap();
+        let rendered = CpuPipeline::new()
+            .render(&source, &recipe, CpuRenderMode::Preview)
+            .unwrap();
+
+        assert_eq!(rendered.buffer().width(), 2);
+        assert_eq!(rendered.buffer().height(), 2);
+        assert_samples_close(rendered.buffer().samples(), source.samples());
     }
 }

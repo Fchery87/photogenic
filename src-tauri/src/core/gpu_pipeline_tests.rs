@@ -146,3 +146,42 @@ fn gpu_noise_reduction_matches_cpu_for_linear_samples() {
     assert_samples_close(actual.samples(), expected.buffer().samples());
     assert_samples_close(actual.samples(), &[0.3, 0.5, 0.7]);
 }
+
+#[test]
+fn gpu_crop_matches_cpu_for_linear_samples() {
+    let source =
+        DecodedImageBuffer::linear_float(4, 2, vec![0.0, 0.1, 0.2, 0.3, 1.0, 1.1, 1.2, 1.3])
+            .unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"crop","params":{"x":0.25,"y":0,"w":0.5,"h":1}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_eq!(actual.width(), expected.buffer().width());
+    assert_eq!(actual.height(), expected.buffer().height());
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.1, 0.2, 1.1, 1.2]);
+}
+
+#[test]
+fn gpu_rotate_matches_cpu_for_linear_samples() {
+    let source =
+        DecodedImageBuffer::linear_float(2, 3, vec![0.0, 0.1, 1.0, 1.1, 2.0, 2.1]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"rotate","params":{"degrees":90}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    assert_eq!(actual.width(), expected.buffer().width());
+    assert_eq!(actual.height(), expected.buffer().height());
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[2.0, 1.0, 0.0, 2.1, 1.1, 0.1]);
+}

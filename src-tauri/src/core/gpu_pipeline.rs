@@ -1,5 +1,6 @@
 use crate::core::image_buffer::DecodedImageBuffer;
 use crate::core::recipe::Recipe;
+use crate::core::transform::apply_recipe_transforms;
 use serde_json::Value;
 use std::error::Error;
 use std::fmt;
@@ -241,10 +242,19 @@ impl GpuPipeline {
         queue.submit(Some(encoder.finish()));
 
         let output = read_buffer(&device, &readback_buffer)?;
-        DecodedImageBuffer::linear_float(source.width(), source.height(), output).map_err(|error| {
+        let developed_buffer =
+            DecodedImageBuffer::linear_float(source.width(), source.height(), output).map_err(
+                |error| {
+                    GpuPipelineError::new(
+                        GpuPipelineErrorKind::InvalidOutput,
+                        format!("GPU exposure returned invalid output: {error}"),
+                    )
+                },
+            )?;
+        apply_recipe_transforms(&developed_buffer, recipe).map_err(|error| {
             GpuPipelineError::new(
                 GpuPipelineErrorKind::InvalidOutput,
-                format!("GPU exposure returned invalid output: {error}"),
+                format!("GPU transform returned invalid output: {error}"),
             )
         })
     }
