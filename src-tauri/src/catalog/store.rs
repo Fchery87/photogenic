@@ -1,4 +1,6 @@
+use std::fs;
 use std::path::Path;
+use std::time::UNIX_EPOCH;
 
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -12,6 +14,16 @@ pub struct CatalogRecipeEntry {
     pub recipe_fingerprint: String,
     pub revision: i64,
     pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ImportedImageRow {
+    pub image_id: String,
+    pub source_path: String,
+    pub file_name: String,
+    pub observed_format: String,
+    pub byte_size: Option<i64>,
+    pub modified_at: Option<String>,
 }
 
 pub struct SqliteCatalogStore {
@@ -121,6 +133,111 @@ impl SqliteCatalogStore {
             )
             .optional()
     }
+
+    pub fn upsert_imported_image(
+        &self,
+        row: &ImportedImageRow,
+        imported_at: &str,
+    ) -> rusqlite::Result<ImportedImageRow> {
+        self.connection.execute(
+            "INSERT INTO catalog_images (
+               image_id,
+               source_path,
+               file_name,
+               observed_format,
+               byte_size,
+               modified_at,
+               imported_at,
+               updated_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+             ON CONFLICT(image_id) DO UPDATE SET
+               source_path = excluded.source_path,
+               file_name = excluded.file_name,
+               observed_format = excluded.observed_format,
+               byte_size = excluded.byte_size,
+               modified_at = excluded.modified_at,
+               updated_at = excluded.updated_at",
+            params![
+                row.image_id,
+                row.source_path,
+                row.file_name,
+                row.observed_format,
+                row.byte_size,
+                row.modified_at,
+                imported_at
+            ],
+        )?;
+        self.connection.execute(
+            "INSERT INTO catalog_imports (image_id, source_path, imported_at)
+             VALUES (?1, ?2, ?3)",
+            params![row.image_id, row.source_path, imported_at],
+        )?;
+        Ok(row.clone())
+    }
+
+    pub fn list_imported_images(&self) -> rusqlite::Result<Vec<ImportedImageRow>> {
+        let mut statement = self.connection.prepare(
+            "SELECT image_id, source_path, file_name, observed_format, byte_size, modified_at
+             FROM catalog_images
+             WHERE source_path IS NOT NULL
+             ORDER BY source_path ASC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(ImportedImageRow {
+                image_id: row.get(0)?,
+                source_path: row.get(1)?,
+                file_name: row.get(2)?,
+                observed_format: row.get(3)?,
+                byte_size: row.get(4)?,
+                modified_at: row.get(5)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn refresh_imported_image_metadata(
+        &self,
+        image_id: &str,
+    ) -> rusqlite::Result<ImportedImageRow> {
+        let existing = self.connection.query_row(
+            "SELECT image_id, source_path, file_name, observed_format, byte_size, modified_at
+                 FROM catalog_images
+                 WHERE image_id = ?1 AND source_path IS NOT NULL",
+            [image_id],
+            |row| {
+                Ok(ImportedImageRow {
+                    image_id: row.get(0)?,
+                    source_path: row.get(1)?,
+                    file_name: row.get(2)?,
+                    observed_format: row.get(3)?,
+                    byte_size: row.get(4)?,
+                    modified_at: row.get(5)?,
+                })
+            },
+        )?;
+        let metadata = fs::metadata(&existing.source_path).ok();
+        let byte_size = metadata.as_ref().map(|metadata| metadata.len() as i64);
+        let modified_at = metadata
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| format!("{}.{:03}Z", duration.as_secs(), duration.subsec_millis()));
+
+        self.connection.execute(
+            "UPDATE catalog_images
+             SET byte_size = ?2,
+                 modified_at = ?3,
+                 updated_at = ?3
+             WHERE image_id = ?1",
+            params![image_id, byte_size, modified_at],
+        )?;
+
+        Ok(ImportedImageRow {
+            byte_size,
+            modified_at,
+            ..existing
+        })
+    }
 }
 
 #[cfg(test)]
@@ -151,6 +268,7 @@ mod tests {
             store.table_names().unwrap(),
             vec![
                 "catalog_images",
+                "catalog_imports",
                 "catalog_presets",
                 "catalog_recipes",
                 "catalog_sidecar_links",

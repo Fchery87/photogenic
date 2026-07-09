@@ -43,11 +43,19 @@ export function classifyImportFile(sourcePath) {
   };
 }
 
-export async function importShoot({ libraryStore, files }) {
+export async function importShoot({ libraryStore, nativeCatalogImporter, files }) {
+  if (!Array.isArray(files)) throw new TypeError("files must be an array");
+  if (nativeCatalogImporter) {
+    if (typeof nativeCatalogImporter !== "function") {
+      throw new TypeError("nativeCatalogImporter must be a function");
+    }
+    const sourcePaths = files.map((file) => (typeof file === "string" ? file : file?.sourcePath));
+    const nativeResult = await nativeCatalogImporter({ sourcePaths, files });
+    return summarizeImportResult(nativeResult?.imported ?? [], nativeResult?.skipped ?? [], files.length);
+  }
   if (!libraryStore || typeof libraryStore.importImage !== "function") {
     throw new TypeError("libraryStore with importImage() is required");
   }
-  if (!Array.isArray(files)) throw new TypeError("files must be an array");
 
   const imported = [];
   const skipped = [];
@@ -93,6 +101,10 @@ export async function importShoot({ libraryStore, files }) {
     );
   }
 
+  return summarizeImportResult(imported, skipped, files.length);
+}
+
+function summarizeImportResult(imported, skipped, total) {
   const importedWithKnownByteSize = imported.filter((entry) => Number.isInteger(entry?.byteSize));
   const importedWithKnownModifiedAt = imported.filter((entry) => typeof entry?.modifiedAt === "string");
   const observedFormatCounts = imported.reduce((summary, entry) => {
@@ -160,7 +172,7 @@ export async function importShoot({ libraryStore, files }) {
     counts: {
       imported: imported.length,
       skipped: skipped.length,
-      total: files.length,
+      total,
       importedWithKnownByteSize: importedWithKnownByteSize.length,
       importedWithKnownModifiedAt: importedWithKnownModifiedAt.length,
       importedWithKnownDimensions: imported.filter((entry) => Number.isInteger(entry?.pixelWidth) && Number.isInteger(entry?.pixelHeight)).length,

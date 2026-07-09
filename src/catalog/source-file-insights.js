@@ -353,16 +353,19 @@ function parseJpegMetadata(buffer) {
 }
 
 function detectObservedImageMetadata(buffer, sourcePath) {
+  const extension = extname(sourcePath).toLowerCase();
   return parsePngDimensions(buffer)
     ?? parseJpegMetadata(buffer)
     ?? parseTiffMetadata(buffer)
     ?? {
-      observedFormat: [".jpg", ".jpeg"].includes(extname(sourcePath).toLowerCase())
+      observedFormat: [".jpg", ".jpeg"].includes(extension)
         ? "jpeg"
-        : [".png"].includes(extname(sourcePath).toLowerCase())
+        : [".png"].includes(extension)
           ? "png"
-          : [".tif", ".tiff", ".dng", ".nef", ".arw", ".cr2"].includes(extname(sourcePath).toLowerCase())
-            ? "tiff-like"
+          : [".tif", ".tiff"].includes(extension)
+            ? "tiff"
+            : [".dng", ".nef", ".arw", ".cr2", ".cr3", ".raf"].includes(extension)
+              ? "raw"
             : null,
       pixelWidth: null,
       pixelHeight: null,

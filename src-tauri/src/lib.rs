@@ -367,7 +367,8 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       viewport_proof_results,
       pipeline_capabilities,
-      render_pipeline
+      render_pipeline,
+      catalog::import::import_sources
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

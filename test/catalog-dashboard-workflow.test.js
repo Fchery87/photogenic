@@ -248,8 +248,8 @@ test("catalog dashboard workflow can refresh visible source metadata before summ
   assert.equal(summary.visibleSourceFiles.withObservedOrientation, 0);
   assert.equal(summary.visibleSourceFiles.withObservedCaptureAt, 0);
   assert.equal(summary.latestVisibleObservedCaptureSourceFile, null);
-  assert.deepEqual(summary.visibleSourceFiles.observedFormats, {});
-  assert.equal(summary.latestVisibleObservedFormatSourceFile, null);
+  assert.deepEqual(summary.visibleSourceFiles.observedFormats, { raw: 1 });
+  assert.equal(summary.latestVisibleObservedFormatSourceFile.imageId, "img-a");
   assert.equal(summary.visibleSourceFiles.withIncompleteMetadata, 2);
   assert.equal(summary.latestVisibleSourceFile.imageId, "img-a");
   assert.equal(summary.latestVisibleSourceFileMissingMetadata.imageId, "img-a");

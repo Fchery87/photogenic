@@ -255,6 +255,17 @@ test("source-file insights reads PNG dimensions from IHDR", async () => {
   assert.equal(metadata.cameraModel, null);
 });
 
+test("source-file insights classifies readable RAW files from extension when headers are opaque", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "photogenic-source-insights-raw-"));
+  const sourcePath = path.join(dir, "frame.CR3");
+  await writeFile(sourcePath, Buffer.from("opaque raw bytes"));
+
+  const metadata = await readObservedSourceFileMetadata(sourcePath);
+  assert.equal(metadata.observedFormat, "raw");
+  assert.equal(metadata.pixelWidth, null);
+  assert.equal(metadata.pixelHeight, null);
+});
+
 test("source-file insights reads JPEG dimensions plus EXIF-lite orientation/capture time and camera metadata", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "photogenic-source-insights-jpeg-"));
   const sourcePath = path.join(dir, "frame.jpg");
