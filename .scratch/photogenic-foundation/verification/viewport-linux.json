@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "task": "3.3",
+  "platform": "linux",
+  "capturedAt": "2026-07-09T05:28:43Z",
+  "gitCommit": "29ae0e9b6c33202973d23bd403af9d04bb9983ac",
+  "host": {
+    "uname": "Linux nochaserz-MacBookPro 6.17.0-35-generic #35~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue May 26 19:30:42 UTC 2 x86_64 x86_64 x86_64 GNU/Linux"
+  },
+  "commands": [
+    {
+      "command": "cargo --version",
+      "exitCode": 0,
+      "stdout": "cargo 1.96.1 (356927216 2026-06-26)"
+    },
+    {
+      "command": "rustc --version",
+      "exitCode": 0,
+      "stdout": "rustc 1.96.1 (31fca3adb 2026-06-26)"
+    },
+    {
+      "command": "timeout 20 npx @tauri-apps/cli@2.11.4 -V",
+      "exitCode": 124,
+      "stdout": "",
+      "stderr": "",
+      "interpretation": "Timed out before the Tauri CLI version check produced output in this noninteractive environment."
+    },
+    {
+      "command": "timeout 30 npm run tauri:dev",
+      "exitCode": 124,
+      "stdout": "> photogenic@0.0.0 tauri:dev\n> npx @tauri-apps/cli@2.11.4 dev",
+      "stderr": "",
+      "interpretation": "Timed out without a failing diagnostic. This does not prove the viewport gates because no interactive Tauri window proof report was captured."
+    },
+    {
+      "command": "npm run tauri:attempt",
+      "exitCode": 130,
+      "stdout": "> photogenic@0.0.0 tauri:attempt\n> node scripts/tauri-attempt.mjs",
+      "stderr": "",
+      "interpretation": "Stopped after the preflight hung with no output beyond the script header, likely during the npx @tauri-apps/cli@latest lookup."
+    }
+  ],
+  "gateResults": [],
+  "verdict": {
+    "shellDecisionUnlocked": false,
+    "reason": "No local Linux interactive viewport proof report was captured in this session."
+  },
+  "decisionImpact": "Linux remains unproven for ADR-0004 in this artifact. Tauri cannot be locked from this evidence."
+}

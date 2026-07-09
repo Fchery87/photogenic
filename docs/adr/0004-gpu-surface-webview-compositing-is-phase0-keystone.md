@@ -25,6 +25,12 @@ must change — so it is tested first, in isolation.
 **Interpretation rule:** a trivial gradient passing is **necessary but not sufficient**.
 Do not treat it as "rendering solved" until the later viewport checks pass too.
 
+**Current decision record:** ADR-0010 records the first post-native-frame shell decision
+checkpoint. As of 2026-07-09, the Tauri path remains the preferred candidate but is not
+locked because the required Windows/macOS/Linux viewport proof reports are incomplete.
+Missing cross-platform proof is not a fallback trigger by itself; a hard gate failure on
+a target OS activates this ADR's fallback ladder.
+
 **Consequences:**
 - Phase 0's exit criteria are reordered: gradient-in-webview @60fps → LibRaw FFI decode
   → adjustment shaders → cross-OS check. (Updates ARCHITECTURE.md §4 Phase 0.)

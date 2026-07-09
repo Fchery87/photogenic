@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "task": "3.3",
+  "platform": "macos",
+  "capturedAt": "2026-07-09T05:28:43Z",
+  "gitCommit": "29ae0e9b6c33202973d23bd403af9d04bb9983ac",
+  "commands": [],
+  "gateResults": [],
+  "verdict": {
+    "shellDecisionUnlocked": false,
+    "reason": "Not run from this Linux workspace. macOS ADR-0004 proof must be captured on a macOS host."
+  },
+  "decisionImpact": "macOS remains unproven. Tauri cannot be locked until this artifact is replaced with a real macOS proof report."
+}
