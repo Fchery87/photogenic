@@ -54,6 +54,14 @@ function summarizeCounts(sessions, viewportProofFoundation) {
   );
 }
 
+function nativeFrameHashFor(session) {
+  return (
+    session?.results?.find(
+      (result) => result?.id === "raw_frame" && typeof result?.metrics?.frameHash === "string",
+    )?.metrics.frameHash ?? null
+  );
+}
+
 export function createViewportProofDashboardFoundation({
   viewportProofFoundation = createViewportProofFoundation(),
 } = {}) {
@@ -67,6 +75,7 @@ export function createViewportProofDashboardFoundation({
     summarizeSessions(sessions = []) {
       const normalizedSessions = Array.isArray(sessions) ? sessions.map((session) => clone(session)) : [];
       const latest = [...normalizedSessions].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      const latestById = new Map(latest.map((session) => [session.sessionId, session]));
       const latestSummaries = latest.map((session) => summarizeSession(session, viewportProofFoundation));
       const latestUnlocked = latestSummaries.find((session) => session.status === "unlocked") ?? null;
       const latestProvisional = latestSummaries.find((session) => session.status !== "unlocked") ?? null;
@@ -154,12 +163,16 @@ export function createViewportProofDashboardFoundation({
             : null;
         })(),
         latestUnlocked: latestUnlocked
-          ? {
-              sessionId: latestUnlocked.sessionId,
-              shell: latestUnlocked.shell,
-              updatedAt: latestUnlocked.updatedAt,
-              passedGates: latestUnlocked.verdict.passedGates,
-            }
+          ? (() => {
+              const nativeFrameHash = nativeFrameHashFor(latestById.get(latestUnlocked.sessionId));
+              return {
+                sessionId: latestUnlocked.sessionId,
+                shell: latestUnlocked.shell,
+                updatedAt: latestUnlocked.updatedAt,
+                passedGates: latestUnlocked.verdict.passedGates,
+                ...(nativeFrameHash ? { nativeFrameHash } : {}),
+              };
+            })()
           : null,
         latestProvisional: latestProvisional
           ? {
@@ -170,15 +183,19 @@ export function createViewportProofDashboardFoundation({
             }
           : null,
         bestProgress: bestProgress
-          ? {
-              sessionId: bestProgress.sessionId,
-              shell: bestProgress.shell,
-              updatedAt: bestProgress.updatedAt,
-              status: bestProgress.status,
-              genuinePassCount: bestProgress.genuinePassCount,
-              measuredGateCount: bestProgress.measuredGateCount,
-              remainingGateCount: bestProgress.remainingGateCount,
-            }
+          ? (() => {
+              const nativeFrameHash = nativeFrameHashFor(latestById.get(bestProgress.sessionId));
+              return {
+                sessionId: bestProgress.sessionId,
+                shell: bestProgress.shell,
+                updatedAt: bestProgress.updatedAt,
+                status: bestProgress.status,
+                genuinePassCount: bestProgress.genuinePassCount,
+                measuredGateCount: bestProgress.measuredGateCount,
+                remainingGateCount: bestProgress.remainingGateCount,
+                ...(nativeFrameHash ? { nativeFrameHash } : {}),
+              };
+            })()
           : null,
       };
     },

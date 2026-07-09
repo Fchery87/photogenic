@@ -22,6 +22,14 @@ function summarizeMetrics(result) {
   }
 
   if (
+    typeof result.metrics.frameWidth === "number" &&
+    typeof result.metrics.frameHeight === "number" &&
+    typeof result.metrics.frameHash === "string"
+  ) {
+    return `Measured native frame: ${formatNumber(result.metrics.frameWidth, 0)}×${formatNumber(result.metrics.frameHeight, 0)} px, hash ${result.metrics.frameHash.slice(0, 12)}.`;
+  }
+
+  if (
     typeof result.metrics.physicalWidth === "number" &&
     typeof result.metrics.physicalHeight === "number"
   ) {
@@ -49,7 +57,7 @@ function summarizeMetrics(result) {
     typeof result.metrics.blue === "number" &&
     typeof result.metrics.alpha === "number"
   ) {
-    return `Measured color sample: rgba(${formatNumber(result.metrics.red, 0)}, ${formatNumber(result.metrics.green, 0)}, ${formatNumber(result.metrics.blue, 0)}, ${formatNumber(result.metrics.alpha, 0)}).`;
+    return `Measured color sample: rgba(${formatNumber(result.metrics.red, 0)}, ${formatNumber(result.metrics.green, 0)}, ${formatNumber(result.metrics.blue, 0)}, ${formatNumber(result.metrics.alpha, 0)})${typeof result.metrics.frameHash === "string" ? ` from native frame hash ${result.metrics.frameHash.slice(0, 12)}` : ""}.`;
   }
 
   return null;

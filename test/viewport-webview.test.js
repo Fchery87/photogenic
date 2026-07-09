@@ -2,7 +2,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { measureHarnessWebviewGates } from "../src/viewport-proof/webview.js";
 
-function createFakeDocument({ hitOverlay = true, colorData = [59, 130, 246, 255] } = {}) {
+function nativeFrameContext() {
+  return {
+    sourceFileId: "viewport-proof-native-frame",
+    recipeFingerprint: "f".repeat(64),
+    frameWidth: 2,
+    frameHeight: 2,
+    transferMethod: "cpu-linear-float32",
+    frameHash: "a".repeat(64),
+    renderDurationMs: 4,
+    red: 51,
+    green: 102,
+    blue: 153,
+    alpha: 255,
+  };
+}
+
+function createFakeDocument({ hitOverlay = true, colorData = [51, 102, 153, 255] } = {}) {
   let creationIndex = 0;
 
   class FakeElement {
@@ -78,7 +94,7 @@ function createFakeDocument({ hitOverlay = true, colorData = [59, 130, 246, 255]
 }
 
 test("measures harness DOM zoom/pan, overlay, and color behavior without overclaiming other gates", () => {
-  const results = measureHarnessWebviewGates({ document: createFakeDocument() });
+  const results = measureHarnessWebviewGates({ document: createFakeDocument(), nativeFrame: nativeFrameContext() });
 
   assert.deepEqual(
     results.map((result) => ({ id: result.id, passed: result.passed })),
@@ -89,11 +105,42 @@ test("measures harness DOM zoom/pan, overlay, and color behavior without overcla
     ],
   );
   assert.match(results[0].note, /translate\+scale/i);
-  assert.match(results[0].note, /raw-frame and color-management proof remain separate gates/i);
+  assert.match(results[0].note, /native frame/i);
+  assert.deepEqual(results[0].metrics, {
+    frameWidth: 2,
+    frameHeight: 2,
+    frameHash: "a".repeat(64),
+  });
   assert.match(results[1].note, /topmost at the viewport center/i);
-  assert.match(results[2].note, /rgba\(59, 130, 246, 255\)/i);
-  assert.match(results[2].note, /raw-frame provenance remains a separate gate/i);
-  assert.deepEqual(results[2].metrics, { red: 59, green: 130, blue: 246, alpha: 255 });
+  assert.deepEqual(results[1].metrics, {
+    frameWidth: 2,
+    frameHeight: 2,
+    frameHash: "a".repeat(64),
+  });
+  assert.match(results[2].note, /native Pipeline patch rgba\(51, 102, 153, 255\)/i);
+  assert.deepEqual(results[2].metrics, {
+    red: 51,
+    green: 102,
+    blue: 153,
+    alpha: 255,
+    frameHash: "a".repeat(64),
+  });
+});
+
+test("does not pass zoom/pan overlay or color measurements without native frame context", () => {
+  const results = measureHarnessWebviewGates({ document: createFakeDocument() });
+
+  assert.deepEqual(
+    results.map((result) => ({ id: result.id, passed: result.passed })),
+    [
+      { id: "zoom_pan", passed: false },
+      { id: "overlay", passed: false },
+      { id: "color_managed", passed: false },
+    ],
+  );
+  assert.match(results[0].note, /native frame/i);
+  assert.match(results[1].note, /native frame/i);
+  assert.match(results[2].note, /native frame/i);
 });
 
 test("returns readable failed measurements when the harness DOM is unavailable", () => {

@@ -24,3 +24,18 @@ test("measureAnimationFrameFps computes fps from sampled frame timestamps", asyn
   assert.equal(result.durationMs, 48);
   assert.equal(result.fps, 62.5);
 });
+
+test("measureAnimationFrameFps rejects samples without a measured frame interval", async () => {
+  const timestamps = [0, 0];
+  const resultPromise = measureAnimationFrameFps({
+    durationMs: 0,
+    requestAnimationFrame: (callback) => {
+      const timestamp = timestamps.shift();
+      queueMicrotask(() => callback(timestamp));
+      return 1;
+    },
+  });
+
+  const result = await resultPromise;
+  assert.equal(result, null);
+});

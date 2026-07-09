@@ -20,8 +20,44 @@ function snapshotRect(element) {
   };
 }
 
-function createResult(id, passed, note) {
-  return { id, passed, note };
+function createResult(id, passed, note, metrics) {
+  return metrics ? { id, passed, metrics, note } : { id, passed, note };
+}
+
+function nativeFrameMetrics(nativeFrame) {
+  if (!nativeFrame || typeof nativeFrame !== "object") return null;
+  const frameWidth = nativeFrame.frameWidth;
+  const frameHeight = nativeFrame.frameHeight;
+  const frameHash = nativeFrame.frameHash;
+  if (
+    typeof frameWidth !== "number" ||
+    !Number.isFinite(frameWidth) ||
+    frameWidth <= 0 ||
+    typeof frameHeight !== "number" ||
+    !Number.isFinite(frameHeight) ||
+    frameHeight <= 0 ||
+    typeof frameHash !== "string" ||
+    frameHash.length < 12
+  ) {
+    return null;
+  }
+  return { frameWidth, frameHeight, frameHash };
+}
+
+function nativeFramePatch(nativeFrame) {
+  const metrics = nativeFrameMetrics(nativeFrame);
+  if (!metrics) return null;
+  for (const key of ["red", "green", "blue", "alpha"]) {
+    const value = nativeFrame[key];
+    if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  }
+  return {
+    ...metrics,
+    red: nativeFrame.red,
+    green: nativeFrame.green,
+    blue: nativeFrame.blue,
+    alpha: nativeFrame.alpha,
+  };
 }
 
 function createUnavailableResults() {
@@ -90,7 +126,15 @@ function createHost(document) {
   return { host, viewport, surface, overlay };
 }
 
-function measureZoomPanResult(surface) {
+function measureZoomPanResult(surface, nativeFrame) {
+  const frameMetrics = nativeFrameMetrics(nativeFrame);
+  if (!frameMetrics) {
+    return createResult(
+      "zoom_pan",
+      false,
+      "Shell bridge connected, but zoom/pan cannot pass without native frame bounds and hash tying the measurement to rendered Pipeline output.",
+    );
+  }
   const before = snapshotRect(surface);
   surface.style.transform = "translate(12px, 8px) scale(1.5)";
   const after = snapshotRect(surface);
@@ -103,12 +147,21 @@ function measureZoomPanResult(surface) {
     "zoom_pan",
     passed,
     passed
-      ? `Measured harness DOM zoom/pan behavior: transformed viewport proxy from ${formatRect(before)} to ${formatRect(after)} using CSS translate+scale. This is a webview DOM interaction sample only; raw-frame and color-management proof remain separate gates.`
-      : `Harness DOM zoom/pan sample did not show the expected translated/scaled bounds (before ${formatRect(before)}, after ${formatRect(after)}). This is still only a webview DOM interaction sample, not raw-frame or color-management proof.`,
+      ? `Measured harness DOM zoom/pan behavior over native frame ${frameMetrics.frameWidth}x${frameMetrics.frameHeight} (${frameMetrics.frameHash.slice(0, 12)}): transformed viewport proxy from ${formatRect(before)} to ${formatRect(after)} using CSS translate+scale.`
+      : `Harness DOM zoom/pan sample tied to native frame ${frameMetrics.frameHash.slice(0, 12)} did not show the expected translated/scaled bounds (before ${formatRect(before)}, after ${formatRect(after)}).`,
+    frameMetrics,
   );
 }
 
-function measureOverlayResult(document, viewport, overlay) {
+function measureOverlayResult(document, viewport, overlay, nativeFrame) {
+  const frameMetrics = nativeFrameMetrics(nativeFrame);
+  if (!frameMetrics) {
+    return createResult(
+      "overlay",
+      false,
+      "Shell bridge connected, but overlay cannot pass without native frame bounds and hash tying the measurement to rendered Pipeline output.",
+    );
+  }
   const viewportRect = snapshotRect(viewport);
   const overlayRect = snapshotRect(overlay);
   const sameBounds =
@@ -127,12 +180,25 @@ function measureOverlayResult(document, viewport, overlay) {
     "overlay",
     passed,
     passed
-      ? `Measured harness DOM overlay behavior: overlay covered ${formatRect(overlayRect)}${hit ? " and was topmost at the viewport center" : " with matching viewport bounds"}. This checks DOM stacking only; raw-frame and color-management proof remain separate gates.`
-      : `Harness DOM overlay sample did not keep the overlay aligned/topmost (viewport ${formatRect(viewportRect)}, overlay ${formatRect(overlayRect)}${hit ? `, top hit ${hit === overlay ? "overlay" : "another element"}` : ""}). This checks DOM stacking only, not raw-frame or color-management proof.`,
+      ? `Measured harness DOM overlay behavior over native frame ${frameMetrics.frameWidth}x${frameMetrics.frameHeight} (${frameMetrics.frameHash.slice(0, 12)}): overlay covered ${formatRect(overlayRect)}${hit ? " and was topmost at the viewport center" : " with matching viewport bounds"}.`
+      : `Harness DOM overlay sample tied to native frame ${frameMetrics.frameHash.slice(0, 12)} did not keep the overlay aligned/topmost (viewport ${formatRect(viewportRect)}, overlay ${formatRect(overlayRect)}${hit ? `, top hit ${hit === overlay ? "overlay" : "another element"}` : ""}).`,
+    frameMetrics,
   );
 }
 
-function measureColorManagedResult(document) {
+function rgbaToCss({ red, green, blue, alpha }) {
+  return `rgba(${red}, ${green}, ${blue}, ${alpha / 255})`;
+}
+
+function measureColorManagedResult(document, nativeFrame) {
+  const patch = nativeFramePatch(nativeFrame);
+  if (!patch) {
+    return createResult(
+      "color_managed",
+      false,
+      "Shell bridge connected, but color-management cannot pass without a native frame Pipeline output patch and frame hash.",
+    );
+  }
   const sampleCanvas = document.createElement("canvas");
   if (!sampleCanvas || typeof sampleCanvas.getContext !== "function") {
     return createResult(
@@ -153,29 +219,33 @@ function measureColorManagedResult(document) {
     );
   }
 
-  ctx.fillStyle = "#3b82f6";
+  ctx.fillStyle = rgbaToCss(patch);
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
-  const passed = r === 59 && g === 130 && b === 246 && a === 255;
+  const passed = r === patch.red && g === patch.green && b === patch.blue && a === patch.alpha;
 
   return {
     id: "color_managed",
     passed,
-    metrics: { red: r, green: g, blue: b, alpha: a },
+    metrics: { red: r, green: g, blue: b, alpha: a, frameHash: patch.frameHash },
     note: passed
-      ? `Measured harness DOM color sample: canvas readback preserved sRGB patch rgba(${r}, ${g}, ${b}, ${a}) for #3b82f6. This is a shell-webview color sample only; raw-frame provenance remains a separate gate.`
-      : `Harness DOM color sample did not preserve the expected sRGB patch for #3b82f6 (got rgba(${r}, ${g}, ${b}, ${a})). This is a shell-webview color sample only, not raw-frame provenance.`,
+      ? `Measured harness DOM color sample against native Pipeline patch rgba(${patch.red}, ${patch.green}, ${patch.blue}, ${patch.alpha}) from frame ${patch.frameHash.slice(0, 12)}; read back rgba(${r}, ${g}, ${b}, ${a}).`
+      : `Harness DOM color sample did not preserve the native Pipeline patch rgba(${patch.red}, ${patch.green}, ${patch.blue}, ${patch.alpha}) from frame ${patch.frameHash.slice(0, 12)} (got rgba(${r}, ${g}, ${b}, ${a})).`,
   };
 }
 
-export function measureHarnessWebviewGates({ document = globalThis.document } = {}) {
+export function measureHarnessWebviewGates({ document = globalThis.document, nativeFrame } = {}) {
   if (!document?.body || typeof document.createElement !== "function") {
     return createUnavailableResults();
   }
 
   const { host, viewport, surface, overlay } = createHost(document);
   try {
-    return [measureZoomPanResult(surface), measureOverlayResult(document, viewport, overlay), measureColorManagedResult(document)];
+    return [
+      measureZoomPanResult(surface, nativeFrame),
+      measureOverlayResult(document, viewport, overlay, nativeFrame),
+      measureColorManagedResult(document, nativeFrame),
+    ];
   } finally {
     host.remove();
   }

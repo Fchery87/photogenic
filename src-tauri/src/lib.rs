@@ -32,6 +32,14 @@ struct ViewportProofMetrics {
   frame_hash: Option<String>,
   #[serde(skip_serializing_if = "Option::is_none")]
   render_duration_ms: Option<u64>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  red: Option<u8>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  green: Option<u8>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  blue: Option<u8>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  alpha: Option<u8>,
 }
 
 #[derive(Serialize)]
@@ -140,6 +148,10 @@ fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
         .map(|frame| frame.transfer_method.clone()),
       frame_hash: native_frame.as_ref().map(|frame| frame.frame_hash.clone()),
       render_duration_ms: native_frame.as_ref().map(|frame| frame.render_duration_ms),
+      red: native_frame.as_ref().map(|frame| frame.red),
+      green: native_frame.as_ref().map(|frame| frame.green),
+      blue: native_frame.as_ref().map(|frame| frame.blue),
+      alpha: native_frame.as_ref().map(|frame| frame.alpha),
     }),
     (Some(size), None) => Some(ViewportProofMetrics {
       physical_width: Some(size.width),
@@ -160,6 +172,10 @@ fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
         .map(|frame| frame.transfer_method.clone()),
       frame_hash: native_frame.as_ref().map(|frame| frame.frame_hash.clone()),
       render_duration_ms: native_frame.as_ref().map(|frame| frame.render_duration_ms),
+      red: native_frame.as_ref().map(|frame| frame.red),
+      green: native_frame.as_ref().map(|frame| frame.green),
+      blue: native_frame.as_ref().map(|frame| frame.blue),
+      alpha: native_frame.as_ref().map(|frame| frame.alpha),
     }),
     _ => native_frame.as_ref().map(|frame| ViewportProofMetrics {
       physical_width: None,
@@ -174,6 +190,10 @@ fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
       transfer_method: Some(frame.transfer_method.clone()),
       frame_hash: Some(frame.frame_hash.clone()),
       render_duration_ms: Some(frame.render_duration_ms),
+      red: Some(frame.red),
+      green: Some(frame.green),
+      blue: Some(frame.blue),
+      alpha: Some(frame.alpha),
     }),
   };
 

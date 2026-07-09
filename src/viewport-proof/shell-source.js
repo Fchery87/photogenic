@@ -123,7 +123,9 @@ export async function loadViewportProofResults({ gradientDrawn, invoke, measureS
     try {
       const shellResults = validateResults(await invoke(COMMAND_NAME));
       const webviewResults =
-        typeof measureWebviewGates === "function" ? validateResults(await measureWebviewGates()) : [];
+        typeof measureWebviewGates === "function"
+          ? validateResults(await measureWebviewGates({ nativeFrame: shellResults.find((result) => result.id === "raw_frame")?.metrics }))
+          : [];
       const sustainedResult = await measureSustainedResult(measureSustainedFps);
       const mergedResults = mergeResults(shellResults, webviewResults);
       return sustainedResult ? upsertResult(mergedResults, sustainedResult) : mergedResults;

@@ -38,11 +38,15 @@ export async function measureAnimationFrameFps(options = {}) {
 
       if (lastTime - startTime >= durationMs) {
         const elapsedMs = lastTime - startTime;
-        resolve({
-          fps: elapsedMs > 0 ? (frameCount * 1000) / elapsedMs : 0,
-          frameCount,
-          durationMs: elapsedMs,
-        });
+        if (elapsedMs <= 0 || frameCount <= 0) {
+          resolve(null);
+        } else {
+          resolve({
+            fps: (frameCount * 1000) / elapsedMs,
+            frameCount,
+            durationMs: elapsedMs,
+          });
+        }
         return;
       }
 

@@ -2,6 +2,23 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createViewportProofDashboardFoundation } from "../src/viewport-proof/dashboard-foundation.js";
 
+function nativeRawFrameResult() {
+  return {
+    id: "raw_frame",
+    passed: true,
+    metrics: {
+      sourceFileId: "viewport-proof-native-frame",
+      recipeFingerprint: "f".repeat(64),
+      frameWidth: 2,
+      frameHeight: 2,
+      transferMethod: "cpu-linear-float32",
+      frameHash: "a".repeat(64),
+      renderDurationMs: 4,
+    },
+    note: "Raw frame proven.",
+  };
+}
+
 test("viewport dashboard foundation summarizes deterministic proof session metadata", () => {
   const foundation = createViewportProofDashboardFoundation();
   const sessions = [
@@ -22,10 +39,10 @@ test("viewport dashboard foundation summarizes deterministic proof session metad
       updatedAt: "2025-07-18T00:00:01.000Z",
       results: [
         { id: "gradient", passed: true, note: "Measured in shell." },
-        { id: "raw_frame", passed: true, note: "Raw frame proven." },
-        { id: "zoom_pan", passed: true, note: "Zoom/pan proven." },
-        { id: "overlay", passed: true, note: "Overlay proven." },
-        { id: "color_managed", passed: true, note: "Color management proven." },
+        nativeRawFrameResult(),
+        { id: "zoom_pan", passed: true, metrics: { frameWidth: 2, frameHeight: 2, frameHash: "a".repeat(64) }, note: "Zoom/pan proven." },
+        { id: "overlay", passed: true, metrics: { frameWidth: 2, frameHeight: 2, frameHash: "a".repeat(64) }, note: "Overlay proven." },
+        { id: "color_managed", passed: true, metrics: { red: 51, green: 102, blue: 153, alpha: 255, frameHash: "a".repeat(64) }, note: "Color management proven." },
         { id: "sustained_60fps", passed: true, fps: 62, note: "Sustained frame rate proven." },
       ],
       verdict: {
@@ -91,6 +108,7 @@ test("viewport dashboard foundation summarizes deterministic proof session metad
       shell: "tauri-dev",
       updatedAt: "2025-07-18T00:00:01.000Z",
       passedGates: ["gradient", "raw_frame", "zoom_pan", "overlay", "color_managed", "sustained_60fps"],
+      nativeFrameHash: "a".repeat(64),
     },
     latestProvisional: {
       sessionId: "browser-fallback",
@@ -106,6 +124,7 @@ test("viewport dashboard foundation summarizes deterministic proof session metad
       genuinePassCount: 6,
       measuredGateCount: 6,
       remainingGateCount: 0,
+      nativeFrameHash: "a".repeat(64),
     },
   });
 

@@ -110,6 +110,7 @@ test("viewport dashboard workflow summarizes unlocked and provisional proof runs
     shell: "tauri-dev",
     updatedAt: "2025-07-18T00:00:01.000Z",
     passedGates: ["gradient", "raw_frame", "zoom_pan", "overlay", "color_managed", "sustained_60fps"],
+    nativeFrameHash: "a".repeat(64),
   });
   assert.deepEqual(summary.latestProvisional, {
     sessionId: "browser-fallback",
@@ -125,6 +126,7 @@ test("viewport dashboard workflow summarizes unlocked and provisional proof runs
     genuinePassCount: 6,
     measuredGateCount: 6,
     remainingGateCount: 0,
+    nativeFrameHash: "a".repeat(64),
   });
 });
 

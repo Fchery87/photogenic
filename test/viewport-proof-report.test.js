@@ -74,6 +74,33 @@ test("report renders structured raw-frame and sustained-fps metrics without upgr
   assert.equal(report.verdict.shellDecisionUnlocked, false);
 });
 
+test("report renders native frame provenance metrics for webview gates", () => {
+  const report = createViewportProofReport([
+    {
+      id: "zoom_pan",
+      passed: true,
+      metrics: { frameWidth: 2, frameHeight: 2, frameHash: "a".repeat(64) },
+      note: "Zoom/pan measured over native frame.",
+    },
+    {
+      id: "color_managed",
+      passed: true,
+      metrics: { red: 51, green: 102, blue: 153, alpha: 255, frameHash: "a".repeat(64) },
+      note: "Color matched native frame patch.",
+    },
+  ]);
+
+  const zoomPan = report.gates.find((gate) => gate.id === "zoom_pan");
+  assert.ok(zoomPan);
+  assert.match(zoomPan.metricsSummary, /native frame: 2×2/i);
+  assert.match(zoomPan.metricsSummary, /aaaaaaaaaaaa/i);
+
+  const color = report.gates.find((gate) => gate.id === "color_managed");
+  assert.ok(color);
+  assert.match(color.metricsSummary, /rgba\(51, 102, 153, 255\)/i);
+  assert.match(color.metricsSummary, /native frame hash aaaaaaaaaaaa/i);
+});
+
 test("report marks under-floor sustained fps as insufficient evidence", () => {
   const report = createViewportProofReport([
     { id: "gradient", passed: true },
