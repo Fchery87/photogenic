@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use tauri::WebviewWindow;
 
 pub mod core;
+pub mod catalog;
 pub mod viewport;
 
 #[derive(Serialize)]

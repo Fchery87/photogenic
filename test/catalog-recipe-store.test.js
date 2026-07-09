@@ -23,6 +23,18 @@ async function makeTempStore() {
   return { dir, store };
 }
 
+function createMemoryCatalogBackend() {
+  let persisted = null;
+  return {
+    async loadStore() {
+      return persisted ? JSON.parse(JSON.stringify(persisted)) : null;
+    },
+    async saveStore(store) {
+      persisted = JSON.parse(JSON.stringify(store));
+    },
+  };
+}
+
 test("catalog save/get round-trips a versioned Edit Recipe", async () => {
   const { store } = await makeTempStore();
   const recipe = createRecipe({
@@ -36,6 +48,28 @@ test("catalog save/get round-trips a versioned Edit Recipe", async () => {
   assert.equal(loaded.recipe.version, 1);
   assert.deepEqual(loaded.recipe.operations, recipe.operations);
   assert.deepEqual(await store.listImageIds(), ["img-001"]);
+});
+
+test("catalog recipe store can use an injected backend adapter", async () => {
+  const catalogBackend = createMemoryCatalogBackend();
+  const recipe = createRecipe({
+    operations: [{ type: "exposure", params: { ev: 0.75 } }],
+  });
+  const store = await createCatalogRecipeStore({
+    catalogBackend,
+    clock: () => "2025-07-01T00:00:00.000Z",
+  });
+  await store.save("img-backend", recipe);
+
+  const reopened = await createCatalogRecipeStore({
+    catalogBackend,
+    clock: () => "2025-07-01T00:00:01.000Z",
+  });
+  const loaded = await reopened.get("img-backend");
+
+  assert.equal(loaded.imageId, "img-backend");
+  assert.deepEqual(loaded.recipe.operations, recipe.operations);
+  assert.deepEqual(await reopened.listImageIds(), ["img-backend"]);
 });
 
 test("saving again increments catalog revision while preserving source-of-truth semantics", async () => {

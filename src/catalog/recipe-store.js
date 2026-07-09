@@ -21,12 +21,33 @@ function normalizeEntry(imageId, entry) {
   };
 }
 
-export async function createCatalogRecipeStore({ path, clock = nowIso }) {
-  if (typeof path !== "string" || !path) throw new TypeError("path is required");
+export async function createCatalogRecipeStore({ path, catalogBackend, clock = nowIso }) {
+  if (catalogBackend) {
+    if (
+      typeof catalogBackend.loadStore !== "function" ||
+      typeof catalogBackend.saveStore !== "function"
+    ) {
+      throw new TypeError("catalogBackend with loadStore() and saveStore() is required");
+    }
+  } else if (typeof path !== "string" || !path) {
+    throw new TypeError("path is required");
+  }
 
   let mutationChain = Promise.resolve();
 
   async function loadStore() {
+    if (catalogBackend) {
+      const loaded = await catalogBackend.loadStore();
+      if (!loaded) return emptyStore();
+      if (loaded.version !== STORE_FORMAT_VERSION || !loaded.images) {
+        throw new RangeError("unsupported catalog store version");
+      }
+      const images = {};
+      for (const [imageId, entry] of Object.entries(loaded.images)) {
+        images[imageId] = normalizeEntry(imageId, entry);
+      }
+      return { version: STORE_FORMAT_VERSION, images };
+    }
     try {
       const parsed = JSON.parse(await readFile(path, "utf8"));
       if (parsed.version !== STORE_FORMAT_VERSION || !parsed.images) {
@@ -44,6 +65,10 @@ export async function createCatalogRecipeStore({ path, clock = nowIso }) {
   }
 
   async function saveStore(store) {
+    if (catalogBackend) {
+      await catalogBackend.saveStore(clone(store));
+      return;
+    }
     await mkdir(dirname(path), { recursive: true });
     const tempPath = `${path}.tmp`;
     await writeFile(tempPath, JSON.stringify(store, null, 2) + "\n", "utf8");

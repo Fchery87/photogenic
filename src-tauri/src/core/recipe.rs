@@ -177,6 +177,20 @@ impl Recipe {
             .collect()
     }
 
+    pub fn to_value(&self) -> Value {
+        let mut object = Map::new();
+        object.insert(
+            "version".to_string(),
+            Value::Number(serde_json::Number::from(self.version)),
+        );
+        object.insert(
+            "operations".to_string(),
+            Value::Array(self.operations.clone()),
+        );
+        object.insert("meta".to_string(), Value::Object(self.meta.clone()));
+        Value::Object(object)
+    }
+
     pub fn fingerprint(&self) -> String {
         let canonical = canonical_recipe_value(self);
         let serialized = stringify_like_json_stringify(&canonical);
