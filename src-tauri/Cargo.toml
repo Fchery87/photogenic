@@ -29,3 +29,4 @@ wgpu = "24.0.5"
 pollster = "0.4.0"
 bytemuck = "1.25.0"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
+png = "0.17"

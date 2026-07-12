@@ -289,7 +289,20 @@ async fn render_pipeline(request: PipelineRenderRequest) -> Result<PipelineRende
     .checked_mul(output_height)
     .ok_or_else(|| "render output dimensions are too large".to_string())? as usize;
   let samples = if request.samples.is_empty() {
-    vec![0.5; sample_count]
+    // Issue 09: try real source decode when a path is provided.
+    // Falls back to a flat gradient when decode returns a placeholder
+    // (RAW/JPEG/TIFF not yet decoded) or when no path is available.
+    if let Some(ref source_path) = request.source.path {
+      let adapter = core::DecodeAdapter::new();
+      match adapter.decode_source(source_path) {
+        Ok(decoded) if decoded.buffer().storage() == core::PixelStorage::LinearFloat32 => {
+          decoded.buffer().samples().to_vec()
+        }
+        _ => vec![0.5; sample_count],
+      }
+    } else {
+      vec![0.5; sample_count]
+    }
   } else {
     request.samples
   };

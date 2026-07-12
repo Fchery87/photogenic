@@ -11,7 +11,8 @@
     "typecheck": "command -v tsc >/dev/null 2>&1 && tsc --noEmit --allowJs --checkJs src/**/*.js test/**/*.js || echo 'tsc not installed; skipping typecheck'",
     "tauri:attempt": "node scripts/tauri-attempt.mjs",
     "tauri:dev": "npx @tauri-apps/cli@2.11.4 dev",
-    "tauri:build": "npx @tauri-apps/cli@2.11.4 build"
+    "tauri:build": "npx @tauri-apps/cli@2.11.4 build",
+    "smoke": "node scripts/smoke.mjs"
   },
   "engines": {
     "node": ">=20"

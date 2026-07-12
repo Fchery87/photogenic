@@ -110,18 +110,78 @@ impl DecodeAdapter {
     ) -> Result<DecodedSource, DecodeError> {
         let path = source_path.as_ref();
         let format = self.classify_source(path)?;
-        std::fs::read(path).map_err(|error| {
+        let file_bytes = std::fs::read(path).map_err(|error| {
             DecodeError::new(
                 DecodeErrorKind::ReadFailed,
                 format!("failed to read {}: {error}", path.display()),
             )
         })?;
 
+        let buffer = match format {
+            ImageFormat::Png => Self::decode_png(&file_bytes)?,
+            // RAW formats (CR2, NEF, ARW, DNG, RAF) require a dedicated RAW decoder
+            // (rawloader or libraw) — not yet integrated. JPEG requires a JPEG decoder.
+            // TIFF requires a TIFF reader. These return a placeholder so the pipeline
+            // can still function in test mode, documented as unproven for real pixels.
+            ImageFormat::Raw | ImageFormat::Jpeg | ImageFormat::Tiff => {
+                DecodedImageBuffer::placeholder_linear(1, 1)
+            }
+        };
+
         Ok(DecodedSource {
             source_path: path.to_path_buf(),
             format,
-            buffer: DecodedImageBuffer::placeholder_linear(1, 1),
+            buffer,
         })
+    }
+
+    /// Decode a PNG file into linear float RGB samples (0.0–1.0 per channel).
+    fn decode_png(file_bytes: &[u8]) -> Result<DecodedImageBuffer, DecodeError> {
+        let decoder = png::Decoder::new(file_bytes);
+        let mut reader = decoder
+            .read_info()
+            .map_err(|error| {
+                DecodeError::new(
+                    DecodeErrorKind::ReadFailed,
+                    format!("PNG decode failed: {error}"),
+                )
+            })?;
+
+        let (width, height) = reader.info().size();
+        let mut buf = vec![0u8; reader.output_buffer_size()];
+        let info = reader
+            .next_frame(&mut buf)
+            .map_err(|error| {
+                DecodeError::new(
+                    DecodeErrorKind::ReadFailed,
+                    format!("PNG frame read failed: {error}"),
+                )
+            })?;
+
+        let bytes_per_pixel = info.line_size / width.max(1) as usize;
+        let pixel_count = (width as usize) * (height as usize);
+        let mut samples = Vec::with_capacity(pixel_count * 3);
+
+        let pixel_data = &buf[..pixel_count * bytes_per_pixel];
+        for pixel in pixel_data.chunks(bytes_per_pixel) {
+            let (r, g, b) = if bytes_per_pixel >= 3 {
+                (
+                    pixel[0] as f32 / 255.0,
+                    pixel[1] as f32 / 255.0,
+                    pixel[2] as f32 / 255.0,
+                )
+            } else {
+                // Grayscale: replicate the single channel to R, G, B
+                let gray = pixel[0] as f32 / 255.0;
+                (gray, gray, gray)
+            };
+            samples.push(r);
+            samples.push(g);
+            samples.push(b);
+        }
+
+        DecodedImageBuffer::linear_float(width, height, samples)
+            .map_err(|error| DecodeError::new(DecodeErrorKind::ReadFailed, error))
     }
 }
 
@@ -157,6 +217,24 @@ mod tests {
         assert_eq!(decoded.buffer().storage(), PixelStorage::PlaceholderLinear);
         assert!(decoded.buffer().width() > 0);
         assert!(decoded.buffer().height() > 0);
+    }
+
+    #[test]
+    fn decode_png_to_real_linear_float_samples() {
+        let adapter = DecodeAdapter::new();
+        let decoded = adapter.decode_source(fixture_path("test-rgb.png")).unwrap();
+
+        assert_eq!(decoded.format(), ImageFormat::Png);
+        assert_eq!(decoded.buffer().storage(), PixelStorage::LinearFloat32);
+        assert_eq!(decoded.buffer().width(), 4);
+        assert_eq!(decoded.buffer().height(), 4);
+
+        // The fixture is (R=255, G=128, B=64) per pixel → (1.0, ~0.502, ~0.251)
+        let samples = decoded.buffer().samples();
+        assert_eq!(samples.len(), 4 * 4 * 3);
+        assert!((samples[0] - 1.0).abs() < 0.01, "R channel ≈ 1.0");
+        assert!((samples[1] - 128.0 / 255.0).abs() < 0.01, "G channel ≈ 0.502");
+        assert!((samples[2] - 64.0 / 255.0).abs() < 0.01, "B channel ≈ 0.251");
     }
 
     #[test]

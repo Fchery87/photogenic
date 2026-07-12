@@ -2,6 +2,18 @@
 
 Status: ready-for-agent
 
+## Progress (smoke script + packaging runbook, 2026-07-12)
+Closed the implementable acceptance criteria:
+- **Smoke script** (`scripts/smoke.mjs`, `npm run smoke`): runs 10 alpha-critical steps (Tauri availability → Pipeline capabilities → License activation → Import → Cull → Develop → Preset → Batch Sync → Export → Viewport proof) with explicit pass/fail fields. All 10 pass on this Linux/x64 headless box. Report at `.scratch/photogenic-foundation/verification/smoke-linux.json`.
+- **Packaging runbook** (`docs/runbooks/internal-alpha-packaging.md`): documents macOS (Metal/Xcode), Windows (DX12/MSVC/WebView2), and Linux (Vulkan/WebKitGTK) prerequisites, build commands, expected bundle outputs, GPU/CPU fallback behavior, viewport proof instructions, report locations, and known limitations.
+- **Final acceptance checklist** in the runbook covers tests, native tests, smoke, packaging, viewport status, and cross-platform report verification.
+Verified: `npm test` 439/439, `cargo test` 73/73, `npm run build` ok, `npm run smoke` 10/10 pass.
+
+Still open (environment-blocked, cannot close from this workspace):
+- Cross-platform smoke reports for macOS and Windows require their native hosts.
+- `npm run tauri:build` requires system build dependencies (libwebkit2gtk on Linux, MSVC on Windows, Xcode on macOS) not present in this headless box.
+- Viewport proof remains provisional (no display server) — cannot be unlocked here.
+
 ## Goal
 Prepare the internal alpha for Windows, macOS, and Linux verification with platform smoke scripts, Tauri packaging, and a final acceptance artifact.
 

@@ -76,9 +76,19 @@ test("runBatch processes all queued jobs to done", async () => {
 test("runBatch isolates failures — one bad job does not stop others", async () => {
   const dir = tempDir();
   try {
-    const workflow = createExportWorkflow({ exportFoundation: createExportFoundation({ clock: fixedClock }) });
+    const realFoundation = createExportFoundation({ clock: fixedClock });
+    const failingFoundation = {
+      ...realFoundation,
+      async writeArtifact(outputPath, params) {
+        if (params.source?.imageId === "will-fail") {
+          throw new Error("simulated write failure");
+        }
+        return realFoundation.writeArtifact(outputPath, params);
+      },
+    };
+    const workflow = createExportWorkflow({ exportFoundation: failingFoundation });
     workflow.queueExport({ source: makeSource("good-0"), recipe: makeRecipe(0.3), destinationDir: dir, namingTemplate: "{imageId}", options: { format: "jpeg" } });
-    workflow.queueExport({ source: null, recipe: makeRecipe(0.5), destinationDir: dir, namingTemplate: "{imageId}", options: { format: "jpeg" } });
+    workflow.queueExport({ source: makeSource("will-fail"), recipe: makeRecipe(0.5), destinationDir: dir, namingTemplate: "{imageId}", options: { format: "jpeg" } });
     workflow.queueExport({ source: makeSource("good-2"), recipe: makeRecipe(0.7), destinationDir: dir, namingTemplate: "{imageId}", options: { format: "jpeg" } });
 
     const report = await workflow.runBatch({ concurrency: 2 });
@@ -88,7 +98,7 @@ test("runBatch isolates failures — one bad job does not stop others", async ()
     assert.equal(report.summary.remaining, 0);
     const failedJob = report.jobs.find((j) => j.status === "failed");
     assert.ok(failedJob);
-    assert.ok(typeof failedJob.error === "string" && failedJob.error.length > 0);
+    assert.match(failedJob.error, /simulated write failure/i);
   } finally { cleanupDir(dir); }
 });
 

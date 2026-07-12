@@ -12,6 +12,14 @@ Verified: `cargo test` 73/73, `npm test` 399/399.
 
 Still open (out of scope here): real RAW decode is still stubbed — `decode_source` returns a placeholder buffer and `render_pipeline` consumes JS-supplied samples, so end-to-end native pixel rendering from a real source file remains future work.
 
+## Progress (real PNG decode, 2026-07-12)
+Closed the decode-to-pipeline gap for PNG sources:
+- **Real PNG decode** (`src-tauri/src/core/decode.rs`): `decode_source` now uses the `png` crate to decode PNG files into linear float RGB samples (0.0–1.0 per channel). A 4×4 RGBA fixture (`test/fixtures/images/test-rgb.png`) verifies real pixel values flow through correctly.
+- **Pipeline wiring** (`src-tauri/src/lib.rs`): `render_pipeline` now calls `decode_source` when samples are empty and a source path is provided. Real decoded pixels replace the flat 0.5 gradient for PNG sources. RAW/JPEG/TIFF still fall back to the placeholder.
+Verified: `cargo test` 74/74 (+1 decode test), `npm test` 439/439, `npm run smoke` 10/10.
+
+Still open: RAW formats (NEF/CR2/ARW/DNG/RAF) require a dedicated RAW decoder crate (e.g., `rawloader`). JPEG requires a JPEG decoder. TIFF requires a TIFF reader. These remain 1×1 placeholders.
+
 ## Goal
 Establish the single Rust/wgpu Pipeline that owns Preview and Export pixel math, mirrors the JavaScript Edit Recipe contract, decodes real sources, and supports both GPU acceleration and CPU fallback.
 

@@ -1,0 +1,116 @@
+{
+  "platform": "linux",
+  "arch": "x64",
+  "startedAt": "2026-07-12T18:13:32.319Z",
+  "finishedAt": "2026-07-12T18:13:37.794Z",
+  "overall": "pass",
+  "steps": [
+    {
+      "name": "tauri-availability",
+      "status": "pass",
+      "detail": {
+        "runtimeBridge": false,
+        "cliAvailable": false,
+        "cliVersion": null,
+        "note": "No Tauri runtime bridge (headless/CI). Workflows run in Node fallback mode."
+      }
+    },
+    {
+      "name": "pipeline-capabilities",
+      "status": "pass",
+      "detail": {
+        "nativeAvailable": true,
+        "pipelineMode": "native",
+        "note": "Native GPU/CPU pipeline detected."
+      }
+    },
+    {
+      "name": "license-activation",
+      "status": "pass",
+      "detail": {
+        "activated": true,
+        "licenseId": "smoke-test-license",
+        "exportState": "active",
+        "canExport": true
+      }
+    },
+    {
+      "name": "import",
+      "status": "pass",
+      "detail": {
+        "imported": 3,
+        "imageIds": [
+          "39ea514d05ed9cd0",
+          "6674e80c2a8009e5",
+          "93965f48e1ded984"
+        ]
+      }
+    },
+    {
+      "name": "cull",
+      "status": "pass",
+      "detail": {
+        "rated": "39ea514d05ed9cd0",
+        "rejected": "93965f48e1ded984"
+      }
+    },
+    {
+      "name": "develop",
+      "status": "pass",
+      "detail": {
+        "imageId": "39ea514d05ed9cd0",
+        "revision": 1
+      }
+    },
+    {
+      "name": "preset",
+      "status": "pass",
+      "detail": {
+        "presetId": "preset-warm-sunset",
+        "appliedTo": "6674e80c2a8009e5"
+      }
+    },
+    {
+      "name": "batch-sync",
+      "status": "pass",
+      "detail": {
+        "syncedTo": [
+          "6674e80c2a8009e5",
+          "93965f48e1ded984"
+        ],
+        "operationTypes": [
+          "exposure"
+        ]
+      }
+    },
+    {
+      "name": "export",
+      "status": "pass",
+      "detail": {
+        "exported": 3,
+        "format": "jpeg",
+        "concurrency": 2
+      }
+    },
+    {
+      "name": "viewport-proof",
+      "status": "pass",
+      "detail": {
+        "reportExists": true,
+        "status": "provisional",
+        "shellDecisionUnlocked": false,
+        "note": "Shell decision still provisional — raw-frame provenance unproven on this platform."
+      }
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0
+  },
+  "licenseState": "active",
+  "knownLimitations": [
+    "Native RAW decode is stubbed — software renderers produce deterministic test pixels, not real RAW pipeline output.",
+    "Viewport proof is provisional until measured on a platform with a display server."
+  ]
+}
