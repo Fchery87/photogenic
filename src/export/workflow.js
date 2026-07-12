@@ -230,5 +230,65 @@ export function createExportWorkflow({
     async rerunJob(jobId) {
       return this.runJob(jobId);
     },
+
+    /**
+     * Run all queued export jobs with bounded concurrency.
+     *
+     * - Jobs are processed by a pool of `concurrency` workers pulling from the
+     *   queue in enqueue order.
+     * - A failed job does NOT stop unrelated jobs — failure isolation is built
+     *   into runJobReport (try/catch per job).
+     * - If `signal` (an AbortSignal) is aborted, workers stop pulling new jobs;
+     *   remaining queued jobs stay queued and are reported as not-started.
+     *
+     * @param {object} [options]
+     * @param {number} [options.concurrency=4]   - Max parallel jobs.
+     * @param {AbortSignal} [options.signal]      - Abort to cancel remaining jobs.
+     * @returns {Promise<object>} Deterministic batch report with all job statuses.
+     */
+    async runBatch({ concurrency = 4, signal } = {}) {
+      if (!Number.isInteger(concurrency) || concurrency < 1) {
+        throw new TypeError("concurrency must be a positive integer");
+      }
+
+      const queuedJobs = queue.list().filter((j) => j.status === "queued");
+      let nextIndex = 0;
+
+      const isCancelled = () => signal?.aborted === true;
+
+      const worker = async () => {
+        while (nextIndex < queuedJobs.length) {
+          if (isCancelled()) break;
+          const job = queuedJobs[nextIndex];
+          nextIndex += 1;
+          // runJobReport has built-in failure isolation (try/catch per job).
+          await this.runJobReport(job.jobId);
+        }
+      };
+
+      const workerCount = Math.min(concurrency, queuedJobs.length);
+      if (workerCount > 0) {
+        await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      }
+
+      const finalJobs = queue.list();
+      const summary = {
+        total: queuedJobs.length,
+        done: finalJobs.filter((j) => j.status === "done").length,
+        failed: finalJobs.filter((j) => j.status === "failed").length,
+        remaining: finalJobs.filter((j) => j.status === "queued").length,
+        cancelled: isCancelled(),
+      };
+
+      return {
+        operation: {
+          kind: "run-batch-export",
+          concurrency,
+          cancelled: summary.cancelled,
+        },
+        jobs: finalJobs.map((j) => inspectJob(j.jobId)),
+        summary,
+      };
+    },
   };
 }

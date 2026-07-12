@@ -246,6 +246,7 @@ fn validate_operation_params(
         )
     })?;
     match operation_type {
+        "exposure" => validate_required_number(params, "ev", index),
         "temperature" => validate_required_number(params, "kelvinDelta", index),
         "tint" => validate_required_number(params, "amount", index),
         "contrast" | "highlights" | "shadows" | "whites" | "blacks" | "sharpen"
@@ -708,6 +709,31 @@ mod tests {
 
         assert_eq!(temperature.kind(), RecipeErrorKind::InvalidParams);
         assert_eq!(tint.kind(), RecipeErrorKind::InvalidParams);
+    }
+
+    #[test]
+    fn validates_exposure_params() {
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"exposure","params":{"ev":0.75}}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(recipe.operation_types(), vec!["exposure"]);
+    }
+
+    #[test]
+    fn rejects_malformed_exposure_params() {
+        let non_numeric = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"exposure","params":{"ev":"bright"}}]}"#,
+        )
+        .unwrap_err();
+        let missing = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"exposure","params":{}}]}"#,
+        )
+        .unwrap_err();
+
+        assert_eq!(non_numeric.kind(), RecipeErrorKind::InvalidParams);
+        assert_eq!(missing.kind(), RecipeErrorKind::InvalidParams);
     }
 
     #[test]

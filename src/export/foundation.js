@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { writeFile, mkdir, readFile, stat } from "node:fs/promises";
 import { basename, dirname, extname } from "node:path";
 import { buildRenderArtifact } from "../pipeline/render-artifact.js";
+import { createNativePipelineAdapter } from "../pipeline/native-adapter.js";
 import { readRenderedJpegDescriptor, renderDeterministicSoftwareJpeg } from "../pipeline/software-jpeg-renderer.js";
 import { readRenderedPngDescriptor, renderDeterministicSoftwarePng } from "../pipeline/software-png-renderer.js";
 import { readRenderedTiffDescriptor, renderDeterministicSoftwareTiff16 } from "../pipeline/software-tiff-renderer.js";
@@ -219,7 +220,14 @@ async function readArtifactSidecar(outputPath) {
   }
 }
 
-export function createExportFoundation({ clock = () => new Date().toISOString(), nativePipeline = null } = {}) {
+export function createExportFoundation({ clock = () => new Date().toISOString(), nativePipeline = null, requireNativePipeline = false } = {}) {
+  // Production wiring (Issue 09 C7): when requireNativePipeline is set, an
+  // unreachable native Pipeline must surface as `native-unavailable` rather
+  // than silently software-rendering. createNativePipelineAdapter() resolves
+  // the real Tauri invoke and throws NativePipelineUnavailableError when no
+  // bridge is present. The deterministic JS renderers remain reachable only as
+  // an explicit test fallback (requireNativePipeline left false).
+  const renderPipeline = nativePipeline ?? (requireNativePipeline ? createNativePipelineAdapter() : null);
   return {
     buildArtifact({ source, recipe, outputName, options = {}, renderedImage = null, generatedAt = clock() }) {
       const exportOptions = normalizeExportOptions(options);
@@ -243,8 +251,8 @@ export function createExportFoundation({ clock = () => new Date().toISOString(),
       let companionOutput;
       if (exportOptions.format === "jpeg" || exportOptions.format === "png" || exportOptions.format === "tiff") {
         const dimensions = resolveRenderedDimensions(source, exportOptions);
-        const rendered = nativePipeline
-          ? await nativePipeline.render({
+        const rendered = renderPipeline
+          ? await renderPipeline.render({
             mode: "export",
             source,
             recipe,

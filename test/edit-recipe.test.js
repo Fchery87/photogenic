@@ -75,6 +75,27 @@ test("validateRecipe rejects malformed white balance params", () => {
   );
 });
 
+test("validateRecipe accepts finite exposure params", () => {
+  assert.deepEqual(
+    validateRecipe({
+      version: RECIPE_SCHEMA_VERSION,
+      operations: [{ type: "exposure", params: { ev: 0.75 } }],
+    }).operations,
+    [{ type: "exposure", params: { ev: 0.75 } }],
+  );
+});
+
+test("validateRecipe rejects malformed exposure params", () => {
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "exposure", params: { ev: "bright" } }] }),
+    /ev/i,
+  );
+  assert.throws(
+    () => validateRecipe({ version: RECIPE_SCHEMA_VERSION, operations: [{ type: "exposure", params: {} }] }),
+    /ev/i,
+  );
+});
+
 test("validateRecipe accepts finite contrast params", () => {
   assert.deepEqual(
     validateRecipe({

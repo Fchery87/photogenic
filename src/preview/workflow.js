@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { RENDERED_PNG_NOTE, readRenderedPngDescriptor, renderDeterministicSoftwarePng } from "../pipeline/software-png-renderer.js";
+import { createNativePipelineAdapter } from "../pipeline/native-adapter.js";
 import { createPreviewFoundation } from "./foundation.js";
 import { createProxyCache } from "./proxy-cache.js";
 
@@ -66,10 +67,18 @@ export function createPreviewWorkflow({
   proxyCache = createProxyCache(),
   cachePathFor = defaultCachePathFor,
   nativePipeline = null,
+  requireNativePipeline = false,
 } = {}) {
   if (typeof cachePathFor !== "function") {
     throw new TypeError("cachePathFor must be a function");
   }
+  // Production wiring (Issue 09 C7): when requireNativePipeline is set, an
+  // unreachable native Pipeline must surface as `native-unavailable` rather
+  // than silently software-rendering. createNativePipelineAdapter() resolves
+  // the real Tauri invoke and throws NativePipelineUnavailableError when no
+  // bridge is present. The deterministic JS renderer remains reachable only as
+  // an explicit test fallback (requireNativePipeline left false).
+  const renderPipeline = nativePipeline ?? (requireNativePipeline ? createNativePipelineAdapter() : null);
 
   return {
     previewFoundation,
@@ -145,8 +154,8 @@ export function createPreviewWorkflow({
     },
 
     fulfillPreviewReport(request, { cacheFilePath = cachePathFor(request?.proxy), renderedOverride = null } = {}) {
-      const rendered = renderedOverride ?? (nativePipeline
-        ? nativePipeline.render({
+      const rendered = renderedOverride ?? (renderPipeline
+        ? renderPipeline.render({
           mode: "preview",
           source: request?.source,
           recipe: request?.recipe,
@@ -263,8 +272,8 @@ export function createPreviewWorkflow({
         throw new TypeError("preview snapshot is required");
       }
       const restored = previewFoundation.restoreRequest(snapshot.request ?? snapshot);
-      const rendered = renderedOverride ?? (nativePipeline
-        ? nativePipeline.render({
+      const rendered = renderedOverride ?? (renderPipeline
+        ? renderPipeline.render({
           mode: "preview",
           source: restored.source,
           recipe: restored.recipe,

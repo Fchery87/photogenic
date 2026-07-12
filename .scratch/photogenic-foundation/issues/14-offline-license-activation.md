@@ -2,6 +2,25 @@
 
 Status: ready-for-agent
 
+## Progress (offline license activation, 2026-07-12)
+Closed all six acceptance criteria:
+- **Ed25519 license signing/verification** (`src/licensing/license-key.js`): `generateLicenseKeyPair()`, `signLicense(payload, privateKey)`, `verifyLicense(signedLicense, publicKey)` with canonical JSON serialization for deterministic signatures.
+- **Activation flow** (`src/licensing/activation.js`): `activateLicense()` verifies signature → checks status → checks expiry (offlineValidUntil + validUntil) → caches verified license as offline snapshot.
+- **Cloud credits never enable local features**: `checkLocalAccess()` always sets `creditsIgnored: true` and never allows local-export based on credit balance.
+- **Offline reload**: `checkLocalAccess()` works with only the cached license (no re-verification, no network) and naturally expires when the grace window passes.
+- **Non-blocking export state**: `describeExportLicensingState()` returns active/inactive/expired/no-license with a human-readable reason, never throws.
+Verified: `npm test` 429/429 (+17 activation tests), `cargo test` 73/73, `npm run build` ok.
+
+All six acceptance criteria verified:
+1. ✅ Valid signed License enables local edit/export while offline
+2. ✅ Expired License denies local licensed features
+3. ✅ Invalid signature denies local licensed features (tampered, wrong key, missing signature)
+4. ✅ Cloud Credit balance never enables local export
+5. ✅ Offline reload uses the cached License snapshot
+6. ✅ Export controls explain state without blocking library workflows
+
+Note: the application's public key is not yet embedded in the Tauri config — that wiring awaits Issue 12 (app UI bootstrap). The activation API is complete and tested independently.
+
 ## Goal
 Add signed offline License validation and internal-alpha activation UI while keeping local editing/export entitlements separate from future cloud Credits.
 

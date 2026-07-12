@@ -414,11 +414,18 @@ mod tests {
     use crate::core::image_buffer::{DecodedImageBuffer, PixelStorage};
     use crate::core::recipe::Recipe;
 
+    /// Tolerance for comparing CPU-rendered samples against hand-computed
+    /// reference values. Deliberately matches the GPU↔CPU parity tolerance
+    /// (`GPU_CPU_SAMPLE_TOLERANCE` in gpu_pipeline_tests.rs) so a CPU golden
+    /// value and a GPU render are held to the same absolute bound in the
+    /// scene-linear 32-bit float working space (ADR-0008).
+    const CPU_SAMPLE_TOLERANCE: f32 = 0.0001;
+
     fn assert_samples_close(actual: &[f32], expected: &[f32]) {
         assert_eq!(actual.len(), expected.len());
         for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
             assert!(
-                (actual - expected).abs() <= 0.0001,
+                (actual - expected).abs() <= CPU_SAMPLE_TOLERANCE,
                 "sample {index}: expected {expected}, got {actual}"
             );
         }

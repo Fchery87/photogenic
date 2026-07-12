@@ -27,6 +27,13 @@ function renderSourceIdentity(source) {
   };
 }
 
+/**
+ * Diagnostic source+recipe signature. This is NOT the Preview↔Export parity
+ * gate (Issue 09 C6): authoritative parity is proven by native pipeline recipe
+ * fingerprint identity and native pixel fixtures (see export-parity golden
+ * fixtures), not by this behavior hash. Retained on artifacts for diagnostics
+ * only and intentionally not asserted as a parity proof.
+ */
 export function computeBehaviorSignature({ source, recipe }) {
   const normalizedSource = normalizeSource(source);
   const normalizedRecipe = normalizeRecipe(recipe);

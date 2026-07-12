@@ -3,11 +3,19 @@ use crate::core::cpu_pipeline::{CpuPipeline, CpuRenderMode};
 use crate::core::image_buffer::DecodedImageBuffer;
 use crate::core::recipe::Recipe;
 
+/// Documented GPU↔CPU parity tolerance. Both render paths operate on the same
+/// scene-linear 32-bit float working space (ADR-0008); an absolute sample
+/// difference within this bound is attributable to GPU floating-point rounding
+/// and rasterization/interpolation order, not to divergent color mathematics.
+/// This is the tolerance the ADR-0001 single-pipeline contract relies on when
+/// accepting the GPU path as a parity-equivalent acceleration of the CPU path.
+const GPU_CPU_SAMPLE_TOLERANCE: f32 = 0.0001;
+
 fn assert_samples_close(actual: &[f32], expected: &[f32]) {
     assert_eq!(actual.len(), expected.len());
     for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
         assert!(
-            (actual - expected).abs() <= 0.0001,
+            (actual - expected).abs() <= GPU_CPU_SAMPLE_TOLERANCE,
             "sample {index}: expected {expected}, got {actual}"
         );
     }
@@ -184,4 +192,21 @@ fn gpu_rotate_matches_cpu_for_linear_samples() {
     assert_eq!(actual.height(), expected.buffer().height());
     assert_samples_close(actual.samples(), expected.buffer().samples());
     assert_samples_close(actual.samples(), &[2.0, 1.0, 0.0, 2.1, 1.1, 0.1]);
+}
+
+#[test]
+fn gpu_straighten_matches_cpu_for_linear_samples() {
+    let source = DecodedImageBuffer::linear_float(1, 3, vec![0.25, 0.5, 0.75]).unwrap();
+    let recipe = Recipe::from_json_str(
+        r#"{"version":1,"operations":[{"type":"straighten","params":{"angle":-1.5}}]}"#,
+    )
+    .unwrap();
+    let expected = CpuPipeline::new()
+        .render(&source, &recipe, CpuRenderMode::Preview)
+        .unwrap();
+    let actual = pollster::block_on(GpuPipeline::new().render_exposure(&source, &recipe)).unwrap();
+
+    // straighten is currently a geometric passthrough on both CPU and GPU paths.
+    assert_samples_close(actual.samples(), expected.buffer().samples());
+    assert_samples_close(actual.samples(), &[0.25, 0.5, 0.75]);
 }

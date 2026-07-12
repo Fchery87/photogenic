@@ -18,7 +18,7 @@ async function loadFixtures() {
   return { source, recipe };
 }
 
-test("preview and export artifacts share the same external behavior signature for fixed fixtures", async () => {
+test("preview and export artifacts share the same native pipeline recipe fingerprint for fixed fixtures", async () => {
   const { source, recipe } = await loadFixtures();
   const preview = createPreviewFoundation({ clock: () => "2025-07-01T00:00:00.000Z" });
   const exportFoundation = createExportFoundation({ clock: () => "2025-07-01T00:00:00.000Z" });
@@ -35,8 +35,12 @@ test("preview and export artifacts share the same external behavior signature fo
   const written = JSON.parse(await readFile(outputPath, "utf8"));
   const proofOutputPath = path.join(dir, "fixture-001.export");
   const proofOutput = await readFile(proofOutputPath);
-  assert.equal(resolved.previewArtifact.behaviorSignature, exported.behaviorSignature);
-  assert.equal(written.behaviorSignature, exported.behaviorSignature);
+  // Preview↔Export parity is proven by native pipeline identity (recipeFingerprint),
+  // the same identity the native adapter carries — not by behavior-signature equality
+  // (Issue 09 C6). behaviorSignature remains on the artifact as a diagnostic only;
+  // authoritative native-pixel parity is covered by the golden-fixture test below.
+  assert.equal(resolved.previewArtifact.recipeFingerprint, exported.recipeFingerprint);
+  assert.equal(written.recipeFingerprint, exported.recipeFingerprint);
   assert.deepEqual(resolved.previewArtifact.operationTypes, exported.operationTypes);
   assert.equal(written.outputName, "fixture-001.jpg");
   assert.equal(written.companionOutput.kind, "image/jpeg");

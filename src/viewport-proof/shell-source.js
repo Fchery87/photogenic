@@ -21,6 +21,7 @@ function placeholderGradientResult() {
     {
       id: "gradient",
       passed: false,
+      measured: false,
       note:
         "2D canvas placeholder drawn; ADR-0004 still requires a real GPU→webview shell measurement before the gradient gate can pass.",
     },
@@ -67,6 +68,7 @@ async function measureSustainedResult(measureSustainedFps) {
       return {
         id: "sustained_60fps",
         passed: false,
+        measured: false,
         note:
           "Shell bridge connected, but the webview requestAnimationFrame sample did not produce a usable FPS reading. This cadence check does not substitute for the separate raw-frame, zoom/pan, overlay, or color-management gates.",
       };
@@ -91,6 +93,7 @@ async function measureSustainedResult(measureSustainedFps) {
     return {
       id: "sustained_60fps",
       passed: false,
+      measured: false,
       note: `Shell bridge connected, but the webview FPS sample failed: ${error instanceof Error ? error.message : String(error)}. This cadence check does not substitute for the separate raw-frame, zoom/pan, overlay, or color-management gates.`,
     };
   }
@@ -110,6 +113,7 @@ function validateResults(results) {
       fps: result.fps,
       metrics: sanitizeMetrics(result.metrics),
       note: result.note,
+      ...(result.measured === false ? { measured: false } : {}),
     };
   });
 }
@@ -135,6 +139,7 @@ export async function loadViewportProofResults({ gradientDrawn, invoke, measureS
         {
           id: "raw_frame",
           passed: false,
+          measured: false,
           note: `Shell measurement unavailable: ${error instanceof Error ? error.message : String(error)}`,
         },
       ];

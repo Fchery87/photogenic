@@ -75,6 +75,37 @@ test("viewport workflow saves successful shell measurements and reloads an unloc
 });
 
 
+test("viewport workflow forwards webview + sustained-fps measurements so all gates can be captured", async () => {
+  const workflow = await makeWorkflow();
+  const saved = await workflow.collectAndSave({
+    sessionId: "tauri-wired",
+    shell: "tauri-dev",
+    gradientDrawn: true,
+    invoke: async () => [
+      { id: "gradient", passed: true, note: "Measured in shell." },
+      nativeRawFrameResult(),
+    ],
+    measureWebviewGates: async () => [
+      { id: "zoom_pan", passed: true, note: "Zoom/pan proven." },
+      { id: "overlay", passed: true, note: "Overlay proven." },
+      { id: "color_managed", passed: true, note: "Color management proven." },
+    ],
+    measureSustainedFps: async () => ({ fps: 63, frameCount: 189, durationMs: 3000 }),
+  });
+
+  assert.equal(saved.session.verdict.shellDecisionUnlocked, true);
+  assert.equal(saved.report.headline, "UNLOCKED");
+  assert.deepEqual(saved.report.verdict.remainingGates, []);
+  assert.equal(
+    saved.session.results.some((result) => result.id === "sustained_60fps"),
+    true,
+  );
+  assert.equal(
+    saved.session.results.some((result) => result.id === "color_managed"),
+    true,
+  );
+});
+
 test("viewport workflow report helpers return operation metadata", async () => {
   const workflow = await makeWorkflow();
   const saved = await workflow.collectAndSaveReport({

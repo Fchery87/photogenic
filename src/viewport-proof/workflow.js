@@ -7,19 +7,19 @@ export function createViewportProofWorkflow({ sessionStore } = {}) {
   }
 
   return {
-    async collectAndSave({ sessionId, shell = "unknown", gradientDrawn, invoke } = {}) {
-      const result = await this.collectAndSaveReport({ sessionId, shell, gradientDrawn, invoke });
+    async collectAndSave({ sessionId, shell = "unknown", gradientDrawn, invoke, measureSustainedFps = null, measureWebviewGates = null } = {}) {
+      const result = await this.collectAndSaveReport({ sessionId, shell, gradientDrawn, invoke, measureSustainedFps, measureWebviewGates });
       return {
         session: result.session,
         report: result.report,
       };
     },
 
-    async collectAndSaveReport({ sessionId, shell = "unknown", gradientDrawn, invoke } = {}) {
+    async collectAndSaveReport({ sessionId, shell = "unknown", gradientDrawn, invoke, measureSustainedFps = null, measureWebviewGates = null } = {}) {
       if (typeof sessionId !== "string" || !sessionId) {
         throw new TypeError("sessionId is required");
       }
-      const results = await loadViewportProofResults({ gradientDrawn, invoke });
+      const results = await loadViewportProofResults({ gradientDrawn, invoke, measureSustainedFps, measureWebviewGates });
       const saved = await sessionStore.saveSession(sessionId, { shell, results });
       return {
         operation: {

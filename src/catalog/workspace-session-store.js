@@ -31,12 +31,30 @@ function normalizeSnapshot(snapshotId, entry, clock) {
   };
 }
 
-export async function createWorkspaceSessionStore({ path, clock = defaultClock } = {}) {
-  if (typeof path !== "string" || !path) throw new TypeError("path is required");
+export async function createWorkspaceSessionStore({ path, catalogBackend, clock = defaultClock } = {}) {
+  if (catalogBackend) {
+    if (typeof catalogBackend.loadStore !== "function" || typeof catalogBackend.saveStore !== "function") {
+      throw new TypeError("catalogBackend with loadStore() and saveStore() is required");
+    }
+  } else if (typeof path !== "string" || !path) {
+    throw new TypeError("path is required");
+  }
 
   let mutationChain = Promise.resolve();
 
   async function loadStore() {
+    if (catalogBackend) {
+      const loaded = await catalogBackend.loadStore();
+      if (!loaded) return emptyStore();
+      if (loaded.version !== STORE_VERSION || !loaded.snapshots) {
+        throw new RangeError("unsupported workspace session store version");
+      }
+      const snapshots = {};
+      for (const [snapshotId, entry] of Object.entries(loaded.snapshots)) {
+        snapshots[snapshotId] = normalizeSnapshot(snapshotId, entry, clock);
+      }
+      return { version: STORE_VERSION, snapshots };
+    }
     try {
       const parsed = JSON.parse(await readFile(path, "utf8"));
       if (parsed.version !== STORE_VERSION || !parsed.snapshots) {
@@ -54,6 +72,10 @@ export async function createWorkspaceSessionStore({ path, clock = defaultClock }
   }
 
   async function saveStore(store) {
+    if (catalogBackend) {
+      await catalogBackend.saveStore(clone(store));
+      return;
+    }
     await mkdir(dirname(path), { recursive: true });
     const tempPath = `${path}.tmp`;
     await writeFile(tempPath, JSON.stringify(store, null, 2) + "\n", "utf8");

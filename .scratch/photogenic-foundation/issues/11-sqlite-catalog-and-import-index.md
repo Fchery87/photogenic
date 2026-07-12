@@ -2,6 +2,16 @@
 
 Status: ready-for-agent
 
+## Progress (SQLite catalog wiring, 2026-07-12)
+Closed the JS-side SQLite catalog wiring gap:
+- **SQLite schema + backend** (`src/catalog/sqlite-schema.js`, `src/catalog/sqlite-backend.js`): node:sqlite-backed adapter with per-store tables (catalog_recipes, catalog_images, catalog_presets, catalog_workspace_state). Schema version 1 with migrations applied on open.
+- **catalogBackend seam**: Added to `createLibraryStore`, `createPresetStore`, `createWorkspaceSessionStore` (recipe-store already had it). All four stores now accept `catalogBackend: { loadStore(), saveStore() }` for durable SQLite persistence.
+- **Durable persistence verified**: recipe revision increments across restarts; library culling metadata (rating/flag/color label) survives; preset and workspace snapshots survive; all four stores share one SQLite file without collision.
+- **Import wiring**: `importShoot` runs end-to-end with a SQLite-backed library store — one durable row per supported RAW/JPEG/TIFF/PNG source, no duplicates on re-import, metadata refresh updates file size/modified time in-place.
+Verified: `npm test` 412/412 (+13 SQLite backend tests), `cargo test` 73/73 (Rust store unchanged), `npm run build` ok.
+
+Still open: the production path (Tauri runtime → Rust rusqlite) is wired at the Rust command level (`catalog::import::import_sources` is registered) but the JS adapter currently targets the node:sqlite test path; wiring the JS `catalogBackend` to call Tauri invoke commands (like the native pipeline adapter) is future work pending Issue 12 (app UI bootstrap).
+
 ## Goal
 Move Catalog persistence and import indexing to durable SQLite storage while preserving the existing workflow seams for recipes, library state, presets, sidecars, and reopen state.
 

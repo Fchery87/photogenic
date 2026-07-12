@@ -72,6 +72,9 @@ function validateOperation(op, index) {
   if (op.type === "tint" && !isFiniteNumber(op.params.amount)) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }
+  if (op.type === "exposure" && !isFiniteNumber(op.params.ev)) {
+    throw new TypeError(`operation ${index} params.ev must be a finite number`);
+  }
   if (op.type === "contrast" && !isFiniteNumber(op.params.amount)) {
     throw new TypeError(`operation ${index} params.amount must be a finite number`);
   }

@@ -283,7 +283,10 @@ mod tests {
     #[test]
     fn sqlite_catalog_recipe_save_survives_process_restart() {
         let path = temp_db_path();
-        let recipe = Recipe::from_operation_names(vec!["exposure"]);
+        let recipe = Recipe::from_json_str(
+            r#"{"version":1,"operations":[{"type":"exposure","params":{"ev":0.5}}]}"#,
+        )
+        .unwrap();
         let expected_fingerprint = recipe.fingerprint();
 
         {

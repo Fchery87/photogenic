@@ -176,10 +176,25 @@ export function evaluateViewportProof(results) {
     reason = "Viewport proof incomplete.";
   }
 
+  // ADR-0010: activate the fallback ladder only on a MEASURED hard-gate failure,
+  // never from missing evidence alone. A gate result with `passed: false` that is
+  // not explicitly marked `measured: false` (a placeholder or shell-unavailable
+  // sentinel) represents a real measured failure and triggers the fallback path.
+  const measuredGateFailures = GATE_LADDER.filter((id) => {
+    const result = byId.get(id);
+    return result?.passed === false && result.measured !== false;
+  });
+  const fallbackActivated = measuredGateFailures.length > 0;
+  if (fallbackActivated) {
+    reason += ` ADR-0004 fallback ladder activated by measured gate failure: ${measuredGateFailures.join(", ")}.`;
+  }
+
   return {
     gradientOnly,
     provisional,
     shellDecisionUnlocked: allPassed,
+    fallbackActivated,
+    measuredGateFailures,
     passedGates,
     remainingGates,
     reason,

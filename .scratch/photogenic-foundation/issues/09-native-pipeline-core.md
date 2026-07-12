@@ -2,6 +2,16 @@
 
 Status: ready-for-agent
 
+## Progress (code-gap closure, 2026-07-09)
+Closed the acceptance code gaps verifiable without a live shell:
+- **C7:** `requireNativePipeline` now wires `native-unavailable` into production preview/export (`src/preview/workflow.js`, `src/export/foundation.js`); the JS software renderer remains an explicit test fallback only.
+- **C6:** `behaviorSignature` demoted to a diagnostic; authoritative preview↔export parity is proven by native recipeFingerprint + golden pixel fixtures (`src/pipeline/render-artifact.js`, `test/export-parity.test.js`).
+- **C5:** exposure `ev` now validated at both Recipe seams (`src-tauri/src/core/recipe.rs`, `src/edit-recipe/schema.js`); straighten now has dedicated GPU-vs-CPU coverage (`src-tauri/src/core/gpu_pipeline_tests.rs`).
+- **C4:** GPU↔CPU tolerance documented as a named constant with ADR-0008 rationale.
+Verified: `cargo test` 73/73, `npm test` 399/399.
+
+Still open (out of scope here): real RAW decode is still stubbed — `decode_source` returns a placeholder buffer and `render_pipeline` consumes JS-supplied samples, so end-to-end native pixel rendering from a real source file remains future work.
+
 ## Goal
 Establish the single Rust/wgpu Pipeline that owns Preview and Export pixel math, mirrors the JavaScript Edit Recipe contract, decodes real sources, and supports both GPU acceleration and CPU fallback.
 

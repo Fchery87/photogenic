@@ -2,6 +2,14 @@
 
 Status: ready-for-agent
 
+## Progress (code-gap closure, 2026-07-09)
+Closed the code gaps verifiable in a headless box:
+- The viewport workflow now forwards `measureWebviewGates`/`measureSustainedFps`, so a saved proof session can capture all six gates, not just gradient + raw_frame (`src/viewport-proof/workflow.js`).
+- The verdict now exposes `fallbackActivated` + `measuredGateFailures`; placeholder/shell-unavailable sentinels are marked `measured: false` so missing evidence never activates the ADR-0004 fallback ladder, while a measured hard-gate failure does (`src/viewport-proof/gates.js`, `src/viewport-proof/shell-source.js`).
+Verified: `npm test` 399/399 (all viewport suites green).
+
+Still open (environment-blocked, NOT closeable in this workspace): the actual interactive viewport measurement cannot be captured in this headless Linux box — no display server, so `npm run tauri:dev` cannot open a window and `viewport_proof_results` is never invoked; `scripts/tauri-attempt.mjs` also blocks on `npx @tauri-apps/cli@latest` network resolution. macOS/Windows proof requires their native hosts. The three `verification/viewport-*.json` reports therefore remain `shellDecisionUnlocked: false`, the shell decision stays provisional (ADR-0010), and Issue 10 cannot be marked done from this workspace.
+
 ## Goal
 Prove the chosen shell can display real native Pipeline frames with honest viewport measurements, then lock Tauri for internal alpha or activate the ADR-0004 fallback ladder.
 

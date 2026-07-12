@@ -195,3 +195,51 @@ test("partial-ladder pass reports correct remaining gates", () => {
   ]);
   assert.equal(r.shellDecisionUnlocked, false);
 });
+
+test("missing evidence alone does NOT activate the ADR-0004 fallback ladder", () => {
+  const r = evaluateViewportProof([]);
+  assert.equal(r.fallbackActivated, false);
+  assert.deepEqual(r.measuredGateFailures, []);
+});
+
+test("a measured hard-gate failure activates the ADR-0004 fallback ladder", () => {
+  const r = evaluateViewportProof([
+    { id: "gradient", passed: true },
+    allPassing().find((result) => result.id === "raw_frame"),
+    { id: "zoom_pan", passed: false, note: "Measured but failed." },
+  ]);
+  assert.equal(r.shellDecisionUnlocked, false);
+  assert.equal(r.fallbackActivated, true);
+  assert.deepEqual(r.measuredGateFailures, ["zoom_pan"]);
+  assert.match(r.reason, /fallback ladder activated/i);
+});
+
+test("placeholder/unavailable sentinels (measured:false) do not activate fallback", () => {
+  const r = evaluateViewportProof([
+    { id: "gradient", passed: false, measured: false },
+    { id: "raw_frame", passed: false, measured: false },
+  ]);
+  assert.equal(r.fallbackActivated, false);
+  assert.deepEqual(r.measuredGateFailures, []);
+});
+
+test("insufficient raw-frame provenance is not a measured gate failure", () => {
+  const r = evaluateViewportProof([
+    { id: "gradient", passed: true },
+    { id: "raw_frame", passed: true },
+  ]);
+  assert.equal(r.fallbackActivated, false);
+});
+
+test("a concrete below-floor fps measurement is a measured gate failure", () => {
+  const r = evaluateViewportProof([
+    { id: "gradient", passed: true },
+    allPassing().find((result) => result.id === "raw_frame"),
+    { id: "zoom_pan", passed: true },
+    { id: "overlay", passed: true },
+    { id: "color_managed", passed: true },
+    { id: "sustained_60fps", passed: false, fps: 45, note: "Measured 45 fps." },
+  ]);
+  assert.equal(r.fallbackActivated, true);
+  assert.deepEqual(r.measuredGateFailures, ["sustained_60fps"]);
+});

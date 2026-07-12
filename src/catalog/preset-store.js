@@ -21,10 +21,28 @@ function normalizePresetEntry(presetId, entry) {
   };
 }
 
-export async function createPresetStore({ path, clock = nowIso }) {
-  if (typeof path !== "string" || !path) throw new TypeError("path is required");
+export async function createPresetStore({ path, catalogBackend, clock = nowIso }) {
+  if (catalogBackend) {
+    if (typeof catalogBackend.loadStore !== "function" || typeof catalogBackend.saveStore !== "function") {
+      throw new TypeError("catalogBackend with loadStore() and saveStore() is required");
+    }
+  } else if (typeof path !== "string" || !path) {
+    throw new TypeError("path is required");
+  }
 
   async function loadStore() {
+    if (catalogBackend) {
+      const loaded = await catalogBackend.loadStore();
+      if (!loaded) return emptyStore();
+      if (loaded.version !== PRESET_STORE_VERSION || !loaded.presets) {
+        throw new RangeError("unsupported preset store version");
+      }
+      const presets = {};
+      for (const [presetId, entry] of Object.entries(loaded.presets)) {
+        presets[presetId] = normalizePresetEntry(presetId, entry);
+      }
+      return { version: PRESET_STORE_VERSION, presets };
+    }
     try {
       const parsed = JSON.parse(await readFile(path, "utf8"));
       if (parsed.version !== PRESET_STORE_VERSION || !parsed.presets) {
@@ -42,6 +60,10 @@ export async function createPresetStore({ path, clock = nowIso }) {
   }
 
   async function saveStore(store) {
+    if (catalogBackend) {
+      await catalogBackend.saveStore(clone(store));
+      return;
+    }
     await mkdir(dirname(path), { recursive: true });
     const tempPath = `${path}.tmp`;
     await writeFile(tempPath, JSON.stringify(store, null, 2) + "\n", "utf8");
