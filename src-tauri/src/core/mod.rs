@@ -1,6 +1,7 @@
 pub mod color;
 pub mod cpu_pipeline;
 pub mod decode;
+pub mod dng_decoder;
 pub mod gpu;
 pub mod gpu_pipeline;
 pub mod image_buffer;

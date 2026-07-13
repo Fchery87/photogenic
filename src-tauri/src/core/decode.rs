@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ImageFormat {
     Raw,
+    Dng,
     Jpeg,
     Png,
     Tiff,
@@ -93,7 +94,8 @@ impl DecodeAdapter {
             .unwrap_or_default();
 
         match extension.as_str() {
-            "cr2" | "cr3" | "nef" | "arw" | "dng" | "raf" => Ok(ImageFormat::Raw),
+            "cr2" | "cr3" | "nef" | "arw" | "raf" => Ok(ImageFormat::Raw),
+            "dng" => Ok(ImageFormat::Dng),
             "jpg" | "jpeg" => Ok(ImageFormat::Jpeg),
             "png" => Ok(ImageFormat::Png),
             "tif" | "tiff" => Ok(ImageFormat::Tiff),
@@ -121,8 +123,9 @@ impl DecodeAdapter {
             ImageFormat::Png => Self::decode_png(&file_bytes)?,
             ImageFormat::Tiff => Self::decode_tiff(&file_bytes)?,
             ImageFormat::Jpeg => Self::decode_jpeg(&file_bytes)?,
-            // RAW formats (CR2, NEF, ARW, DNG, RAF) require a dedicated RAW decoder
-            // (rawloader or libraw) — not yet integrated.
+            ImageFormat::Dng => Self::decode_dng(&file_bytes)?,
+            // RAW formats (CR2, NEF, ARW, RAF) require a dedicated RAW decoder
+            // (rawloader or libraw) — not yet integrated. DNG is decoded above.
             ImageFormat::Raw => {
                 DecodedImageBuffer::placeholder_linear(1, 1)
             }
@@ -353,6 +356,18 @@ impl DecodeAdapter {
         DecodedImageBuffer::linear_float(decoded.width, decoded.height, samples)
             .map_err(|error| DecodeError::new(DecodeErrorKind::ReadFailed, error))
     }
+
+    /// Decode a DNG (Digital Negative) RAW file into linear float RGB samples.
+    /// Uses the pure-Rust `dng_decoder` module — no external crate dependency.
+    /// Supports uncompressed DNG with standard Bayer CFA patterns.
+    fn decode_dng(file_bytes: &[u8]) -> Result<DecodedImageBuffer, DecodeError> {
+        crate::core::dng_decoder::decode_dng(file_bytes).map_err(|error| {
+            DecodeError::new(
+                DecodeErrorKind::ReadFailed,
+                format!("DNG decode failed: {error}"),
+            )
+        })
+    }
 }
 
 /// Read a big-endian or little-endian u16 from a byte slice.
@@ -509,6 +524,43 @@ mod tests {
         assert_eq!(
             adapter.classify_source("hero.tiff").unwrap(),
             ImageFormat::Tiff
+        );
+    }
+
+    #[test]
+    fn decode_dng_to_real_linear_float_samples() {
+        let adapter = DecodeAdapter::new();
+        let decoded = adapter.decode_source(fixture_path("test-raw.dng")).unwrap();
+
+        assert_eq!(decoded.format(), ImageFormat::Dng);
+        assert_eq!(decoded.buffer().storage(), PixelStorage::LinearFloat32);
+        assert_eq!(decoded.buffer().width(), 4);
+        assert_eq!(decoded.buffer().height(), 4);
+
+        // The fixture has R=52428/65535≈0.8, G=26214/65535≈0.4, B=13107/65535≈0.2
+        // After demosaicing, the RGB values should be close to these at known sites.
+        let samples = decoded.buffer().samples();
+        assert_eq!(samples.len(), 4 * 4 * 3);
+
+        // Pixel (0,0) is an R site: R should be ≈0.8
+        let r00 = samples[0];
+        assert!((r00 - 0.8).abs() < 0.01, "R at (0,0) ≈ 0.8, got {}", r00);
+
+        // Pixel (1,1) is a B site: B should be ≈0.2
+        let b11 = samples[(1 * 4 + 1) * 3 + 2];
+        assert!((b11 - 0.2).abs() < 0.01, "B at (1,1) ≈ 0.2, got {}", b11);
+    }
+
+    #[test]
+    fn classifies_dng_separately_from_raw() {
+        let adapter = DecodeAdapter::new();
+        assert_eq!(
+            adapter.classify_source("photo.dng").unwrap(),
+            ImageFormat::Dng
+        );
+        assert_eq!(
+            adapter.classify_source("photo.nef").unwrap(),
+            ImageFormat::Raw
         );
     }
 }

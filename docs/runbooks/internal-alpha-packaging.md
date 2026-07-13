@@ -132,6 +132,24 @@ Wayland) and a GPU. Results are written to `verification/viewport-linux.json`.
 Headless Linux (no display) cannot measure the GPU→webview path — the viewport
 proof remains provisional on headless systems.
 
+## Continuous Integration (CI)
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request:
+
+1. **Test job** — runs on `ubuntu-latest`, `macos-latest`, and `windows-latest`:
+   - `npm test` (JS test suite)
+   - `cargo test` (Rust test suite)
+   - `npm run build` (frontend build)
+   - `npm run smoke` (alpha smoke tests)
+   - Uploads `smoke-<platform>.json` and `viewport-<platform>.json` as artifacts
+
+2. **Packaging job** — runs after tests pass on each platform:
+   - `npm run tauri:build` (platform-specific Tauri bundle)
+   - Uploads `.deb`/`.AppImage` (Linux), `.dmg`/`.app` (macOS), `.msi`/`.exe` (Windows) as artifacts
+   - Build failures (missing system deps) are non-blocking and reported as warnings
+
+To collect cross-platform smoke reports, download the artifacts from the CI run.
+
 ## Final acceptance checklist
 
 Before marking Issue 15 as done, verify all of the following:
@@ -162,10 +180,9 @@ All verification artifacts live under:
 
 ## Known limitations (internal alpha)
 
-- **RAW decode is stubbed:** the native pipeline consumes JS-supplied sample
-  data, not real RAW-decoded pixels. Software renderers produce deterministic
-  test images (real JPEG/PNG/TIFF-16 bytes) but not final RAW/GPU pipeline
-  output.
+- **RAW decode:** DNG files decode to real pixels via the pure-Rust DNG decoder
+  (Bayer demosaicing). Other RAW formats (NEF, CR2, ARW, RAF) still return placeholders.
+  Software renderers produce real JPEG/PNG/TIFF bytes for export.
 - **Viewport proof is provisional on headless platforms:** the GPU→webview frame
   path can only be measured on a platform with a display server and GPU.
 - **Licensing public key is not yet embedded in the Tauri config:** the

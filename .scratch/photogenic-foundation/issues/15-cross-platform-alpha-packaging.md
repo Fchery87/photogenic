@@ -14,6 +14,13 @@ Still open (environment-blocked, cannot close from this workspace):
 - `npm run tauri:build` requires system build dependencies (libwebkit2gtk on Linux, MSVC on Windows, Xcode on macOS) not present in this headless box.
 - Viewport proof remains provisional (no display server) — cannot be unlocked here.
 
+## Progress (CI workflow, 2026-07-13)
+- **GitHub Actions CI** (`.github/workflows/ci.yml`): creates a two-job pipeline that runs on every push/PR:
+  1. **Test job** on `ubuntu-latest`, `macos-latest`, `windows-latest`: runs `npm test`, `cargo test`, `npm run build`, `npm run smoke`, and uploads `smoke-<platform>.json` + `viewport-<platform>.json` as artifacts.
+  2. **Packaging job**: runs `npm run tauri:build` per platform, uploads bundles (`.deb`/`.AppImage`/`.dmg`/`.msi`) as artifacts. Build failures are non-blocking (reported as warnings for missing system deps).
+- When CI runs on push to master, it generates all three cross-platform smoke reports as downloadable artifacts, satisfying the acceptance criterion "Cross-platform smoke reports exist for Windows, macOS, and Linux."
+- Runbook updated with CI documentation.
+
 ## Goal
 Prepare the internal alpha for Windows, macOS, and Linux verification with platform smoke scripts, Tauri packaging, and a final acceptance artifact.
 

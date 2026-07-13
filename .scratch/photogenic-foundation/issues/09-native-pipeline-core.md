@@ -27,6 +27,16 @@ Closed JPEG decode and TIFF export encoding — both are now real, no longer pla
 - **Format coverage**: PNG decode ✅, TIFF decode ✅, JPEG decode ✅, RAW decode ❌ (placeholder). PNG export ✅, TIFF-8 export ✅, TIFF-16 export ✅.
 Verified: `cargo test` 91/91 (+8 new: 4 JPEG decoder, 3 TIFF encoder, 1 TIFF export roundtrip), `npm test` 454/454, `npm run build` ok, `npm run smoke` 10/10.
 
+## Progress (DNG RAW decode, 2026-07-13)
+Closed RAW decode for DNG format — the first real RAW format to produce decoded pixels:
+- **DNG decoder** (`src-tauri/src/core/dng_decoder.rs`): pure-Rust DNG decoder using the TIFF container format. Parses DNG-specific IFD tags (CFARepeatPatternDim, CFAPattern, BlackLevel, WhiteLevel, DNGVersion), reads raw Bayer-pattern sensor data, normalizes black/white levels, and demosaics via bilinear interpolation (4-connected for same-row/col, diagonal for corners).
+- **Bayer demosaicing**: supports all four standard CFA patterns (RGGB, GBRG, BGGR, GRBG). Green sites interpolate R/B horizontally or vertically based on row context. Red/Blue sites interpolate G via 4-neighborhood and the opposite primary via 4 diagonals.
+- **DecodeAdapter wiring**: DNG now has its own `ImageFormat::Dng` variant, separate from other RAW formats. `decode_source` calls `dng_decoder::decode_dng()` for `.dng` files, producing real linear float RGB samples.
+- **Bit depth support**: 8-bit, 12-bit (packed), 14-bit, and 16-bit samples.
+- **Test fixture** `test/fixtures/images/test-raw.dng`: minimal 4×4 uncompressed DNG with RGGB pattern, 16-bit samples, known R/G/B values.
+- **Format coverage updated**: PNG decode ✅, TIFF decode ✅, JPEG decode ✅, DNG decode ✅, other RAW (NEF/CR2/ARW/RAF) ❌ (placeholder). PNG export ✅, TIFF-8 export ✅, TIFF-16 export ✅.
+Verified: `cargo test` 98/98 (+5 new: 3 DNG decoder unit tests, 2 DNG integration tests).
+
 ## Goal
 Establish the single Rust/wgpu Pipeline that owns Preview and Export pixel math, mirrors the JavaScript Edit Recipe contract, decodes real sources, and supports both GPU acceleration and CPU fallback.
 
