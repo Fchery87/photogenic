@@ -373,15 +373,144 @@ mod render_pipeline_tests {
   }
 }
 
+use std::sync::Mutex;
+use tauri::Manager;
+
+struct AppState {
+  catalog: Mutex<catalog::SqliteCatalogStore>,
+}
+
+#[tauri::command]
+fn list_library(state: tauri::State<AppState>) -> Result<Vec<catalog::ImportedImageRow>, String> {
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  store.list_imported_images().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_recipe(
+  state: tauri::State<AppState>,
+  image_id: String,
+) -> Result<Option<serde_json::Value>, String> {
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  let entry = store.get_recipe(&image_id).map_err(|e| e.to_string())?;
+  Ok(entry.map(|e| serde_json::json!({
+    "imageId": e.image_id,
+    "recipe": e.recipe.to_value(),
+    "recipeFingerprint": e.recipe_fingerprint,
+    "revision": e.revision,
+    "updatedAt": e.updated_at,
+  })))
+}
+
+#[tauri::command]
+fn save_recipe(
+  state: tauri::State<AppState>,
+  image_id: String,
+  recipe: serde_json::Value,
+  updated_at: Option<String>,
+) -> Result<serde_json::Value, String> {
+  let parsed_recipe = core::Recipe::from_value(recipe).map_err(|e| e.to_string())?;
+  let timestamp = updated_at.unwrap_or_else(|| {
+    std::time::SystemTime::now()
+      .duration_since(std::time::UNIX_EPOCH)
+      .map(|d| format!("{}.{:03}Z", d.as_secs(), d.subsec_millis()))
+      .unwrap_or_else(|_| "1970-01-01T00:00:00.000Z".to_string())
+  });
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  let entry = store
+    .save_recipe(&image_id, &parsed_recipe, &timestamp)
+    .map_err(|e| e.to_string())?;
+  Ok(serde_json::json!({
+    "imageId": entry.image_id,
+    "recipe": entry.recipe.to_value(),
+    "recipeFingerprint": entry.recipe_fingerprint,
+    "revision": entry.revision,
+    "updatedAt": entry.updated_at,
+  }))
+}
+
+#[tauri::command]
+fn list_presets(state: tauri::State<AppState>) -> Result<Vec<catalog::PresetEntry>, String> {
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  store.list_presets().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_preset(
+  state: tauri::State<AppState>,
+  preset_id: String,
+  name: String,
+  recipe: serde_json::Value,
+) -> Result<catalog::PresetEntry, String> {
+  let recipe_json = serde_json::to_string(&recipe).map_err(|e| e.to_string())?;
+  let now = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| format!("{}.{:03}Z", d.as_secs(), d.subsec_millis()))
+    .unwrap_or_else(|_| "1970-01-01T00:00:00.000Z".to_string());
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  store
+    .save_preset(&preset_id, &name, &recipe_json, &now)
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_workspace_state(
+  state: tauri::State<AppState>,
+  workspace_id: String,
+) -> Result<Option<catalog::WorkspaceStateEntry>, String> {
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  store
+    .get_workspace_state(&workspace_id)
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_workspace_state(
+  state: tauri::State<AppState>,
+  workspace_id: String,
+  state_json: serde_json::Value,
+) -> Result<catalog::WorkspaceStateEntry, String> {
+  let json_str = serde_json::to_string(&state_json).map_err(|e| e.to_string())?;
+  let now = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| format!("{}.{:03}Z", d.as_secs(), d.subsec_millis()))
+    .unwrap_or_else(|_| "1970-01-01T00:00:00.000Z".to_string());
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  store
+    .save_workspace_state(&workspace_id, &json_str, &now)
+    .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
+    .setup(|app| {
+      let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+      std::fs::create_dir_all(&data_dir).ok();
+      let db_path = data_dir.join("photogenic-catalog.sqlite");
+      let store = catalog::SqliteCatalogStore::open(&db_path)
+        .expect("failed to open catalog database");
+      app.manage(AppState {
+        catalog: Mutex::new(store),
+      });
+      Ok(())
+    })
     .invoke_handler(tauri::generate_handler![
       viewport_proof_results,
       pipeline_capabilities,
       render_pipeline,
-      catalog::import::import_sources
+      catalog::import::import_sources,
+      list_library,
+      get_recipe,
+      save_recipe,
+      list_presets,
+      save_preset,
+      get_workspace_state,
+      save_workspace_state
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

@@ -2,6 +2,24 @@
 
 Status: ready-for-agent
 
+## Progress (editor UI + Tauri bridge + full develop controls + preset/workspace, 2026-07-12)
+Closed the implementable portions:
+- **Editor UI shell** (`app/index.html`, `app/editor.css`, `app/main.js`): replaces the Phase 0 viewport harness with a real editor layout — library sidebar, center preview, develop panel with 19 recipe controls covering all operation types, batch-sync panel, export panel, status bar, and pipeline/license badges.
+- **Tauri command bridge** (`app/tauri-bridge.js`): wraps the Tauri invoke IPC with graceful degradation. When Tauri is unavailable, the bridge reports `available: false` and all methods reject with a clear error.
+- **Tauri catalog commands** (`src-tauri/src/lib.rs`): seven commands expose the SQLite catalog store: `list_library`, `get_recipe`, `save_recipe`, `list_presets`, `save_preset`, `get_workspace_state`, `save_workspace_state`.
+- **Recipe↔control mapping** tested: all 15 recipe operation types (exposure, temperature, tint, contrast, highlights, shadows, whites, blacks, toneCurve, HSL, sharpen, noiseReduction, crop, rotate, straighten).
+- **Preset save** wired (criterion 6): the UI saves a source-independent preset via `bridge.savePreset()`.
+- **Workspace reopen** wired (criterion 3): the UI saves the selected image ID on change and restores it on startup via `bridge.getWorkspaceState()`.
+- **Editor verified rendering** in headless Chrome with 19 develop controls, library sidebar, export panel.
+Verified: `npm test` 450/450, `cargo test` 78/78, `npm run build` ok.
+
+Still open (environment-blocked, cannot fully close from this workspace):
+- The UI cannot be visually verified in Tauri runtime (no display server).
+- Import file picker needs Tauri file-dialog API.
+- Batch sync and export execution need additional Tauri commands wiring the JS workflows.
+- Criterion 7 (reject invalid preset operations) needs preset apply/validate Tauri command.
+- Criterion 9 (export without bypassing licensing) needs export + licensing Tauri commands.
+
 ## Goal
 Replace the Phase 0 harness with a usable internal-alpha editor shell that supports import, culling, develop controls, presets, Batch Sync, export queueing, and reopen state through the established workflow seams.
 

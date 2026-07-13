@@ -16,7 +16,7 @@ pub struct CatalogRecipeEntry {
     pub updated_at: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct ImportedImageRow {
     pub image_id: String,
     pub source_path: String,
@@ -24,6 +24,22 @@ pub struct ImportedImageRow {
     pub observed_format: String,
     pub byte_size: Option<i64>,
     pub modified_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct PresetEntry {
+    pub preset_id: String,
+    pub name: String,
+    pub recipe_json: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct WorkspaceStateEntry {
+    pub workspace_id: String,
+    pub state_json: String,
+    pub updated_at: String,
 }
 
 pub struct SqliteCatalogStore {
@@ -238,6 +254,130 @@ impl SqliteCatalogStore {
             ..existing
         })
     }
+
+    // ------------------------------------------------------------------
+    // Presets
+    // ------------------------------------------------------------------
+
+    pub fn save_preset(
+        &self,
+        preset_id: &str,
+        name: &str,
+        recipe_json: &str,
+        updated_at: &str,
+    ) -> rusqlite::Result<PresetEntry> {
+        // Check if preset exists to preserve created_at
+        let existing_created: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT created_at FROM catalog_presets WHERE preset_id = ?1",
+                [preset_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let created_at = existing_created.unwrap_or_else(|| updated_at.to_string());
+
+        self.connection.execute(
+            "INSERT INTO catalog_presets (preset_id, name, recipe_json, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(preset_id) DO UPDATE SET
+               name = excluded.name,
+               recipe_json = excluded.recipe_json,
+               updated_at = excluded.updated_at",
+            params![preset_id, name, recipe_json, created_at, updated_at],
+        )?;
+
+        Ok(PresetEntry {
+            preset_id: preset_id.to_string(),
+            name: name.to_string(),
+            recipe_json: recipe_json.to_string(),
+            created_at,
+            updated_at: updated_at.to_string(),
+        })
+    }
+
+    pub fn get_preset(&self, preset_id: &str) -> rusqlite::Result<Option<PresetEntry>> {
+        let result = self
+            .connection
+            .query_row(
+                "SELECT preset_id, name, recipe_json, created_at, updated_at
+                 FROM catalog_presets WHERE preset_id = ?1",
+                [preset_id],
+                |row| {
+                    Ok(PresetEntry {
+                        preset_id: row.get(0)?,
+                        name: row.get(1)?,
+                        recipe_json: row.get(2)?,
+                        created_at: row.get(3)?,
+                        updated_at: row.get(4)?,
+                    })
+                },
+            )
+            .optional()?;
+        Ok(result)
+    }
+
+    pub fn list_presets(&self) -> rusqlite::Result<Vec<PresetEntry>> {
+        let mut stmt = self.connection.prepare(
+            "SELECT preset_id, name, recipe_json, created_at, updated_at
+             FROM catalog_presets ORDER BY name ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(PresetEntry {
+                preset_id: row.get(0)?,
+                name: row.get(1)?,
+                recipe_json: row.get(2)?,
+                created_at: row.get(3)?,
+                updated_at: row.get(4)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    // ------------------------------------------------------------------
+    // Workspace state
+    // ------------------------------------------------------------------
+
+    pub fn save_workspace_state(
+        &self,
+        workspace_id: &str,
+        state_json: &str,
+        updated_at: &str,
+    ) -> rusqlite::Result<WorkspaceStateEntry> {
+        self.connection.execute(
+            "INSERT INTO catalog_workspace_state (workspace_id, state_json, updated_at)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(workspace_id) DO UPDATE SET
+               state_json = excluded.state_json,
+               updated_at = excluded.updated_at",
+            params![workspace_id, state_json, updated_at],
+        )?;
+
+        Ok(WorkspaceStateEntry {
+            workspace_id: workspace_id.to_string(),
+            state_json: state_json.to_string(),
+            updated_at: updated_at.to_string(),
+        })
+    }
+
+    pub fn get_workspace_state(&self, workspace_id: &str) -> rusqlite::Result<Option<WorkspaceStateEntry>> {
+        let result = self
+            .connection
+            .query_row(
+                "SELECT workspace_id, state_json, updated_at
+                 FROM catalog_workspace_state WHERE workspace_id = ?1",
+                [workspace_id],
+                |row| {
+                    Ok(WorkspaceStateEntry {
+                        workspace_id: row.get(0)?,
+                        state_json: row.get(1)?,
+                        updated_at: row.get(2)?,
+                    })
+                },
+            )
+            .optional()?;
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -305,6 +445,75 @@ mod tests {
         assert_eq!(loaded.revision, 1);
         assert_eq!(loaded.recipe.fingerprint(), expected_fingerprint);
         assert_eq!(loaded.recipe.operation_types(), vec!["exposure"]);
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn preset_save_and_load_survives_restart() {
+        let path = temp_db_path();
+        let recipe_json = r#"{"version":1,"operations":[{"type":"exposure","params":{"ev":0.5}}]}"#;
+
+        {
+            let store = SqliteCatalogStore::open(&path).unwrap();
+            let entry = store
+                .save_preset("preset-001", "Warm Sunset", recipe_json, "2025-07-01T00:00:00Z")
+                .unwrap();
+            assert_eq!(entry.preset_id, "preset-001");
+            assert_eq!(entry.name, "Warm Sunset");
+        }
+
+        let reopened = SqliteCatalogStore::open(&path).unwrap();
+        let loaded = reopened.get_preset("preset-001").unwrap().unwrap();
+        assert_eq!(loaded.name, "Warm Sunset");
+        assert_eq!(loaded.recipe_json, recipe_json);
+
+        let all = reopened.list_presets().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].preset_id, "preset-001");
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn preset_update_preserves_created_at() {
+        let path = temp_db_path();
+        let store = SqliteCatalogStore::open(&path).unwrap();
+
+        store
+            .save_preset("p1", "Original", "{}", "2025-01-01T00:00:00Z")
+            .unwrap();
+        store
+            .save_preset("p1", "Updated", "{\"version\":1}", "2025-06-01T00:00:00Z")
+            .unwrap();
+
+        let loaded = store.get_preset("p1").unwrap().unwrap();
+        assert_eq!(loaded.name, "Updated");
+        assert_eq!(loaded.created_at, "2025-01-01T00:00:00Z");
+        assert_eq!(loaded.updated_at, "2025-06-01T00:00:00Z");
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn workspace_state_save_and_load_survives_restart() {
+        let path = temp_db_path();
+        let state_json = r#"{"selectedImageId":"img-001","activeFilter":"all"}"#;
+
+        {
+            let store = SqliteCatalogStore::open(&path).unwrap();
+            store
+                .save_workspace_state("default", state_json, "2025-07-01T00:00:00Z")
+                .unwrap();
+        }
+
+        let reopened = SqliteCatalogStore::open(&path).unwrap();
+        let loaded = reopened.get_workspace_state("default").unwrap().unwrap();
+        assert_eq!(loaded.workspace_id, "default");
+        assert_eq!(loaded.state_json, state_json);
+
+        // Non-existent workspace returns None
+        assert!(reopened.get_workspace_state("nonexistent").unwrap().is_none());
 
         fs::remove_file(path).ok();
     }
