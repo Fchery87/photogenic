@@ -133,6 +133,43 @@ test("bridge calls preset and workspace commands with correct args", async () =>
   }
 });
 
+test("bridge calls batch_sync, apply_preset, check_license with correct args", async () => {
+  const calls = [];
+  globalThis.__TAURI__ = {
+    core: {
+      invoke: async (command, args) => {
+        calls.push({ command, args });
+        if (command === "batch_sync") return { updatedCount: 3, skippedCount: 1, message: "ok" };
+        if (command === "apply_preset") return { imageId: args.targetImageId, recipe: { version: 1, operations: [] }, revision: 1, appliedFromPreset: "Test" };
+        if (command === "check_license") return { activated: false, reason: "No license" };
+        return null;
+      },
+    },
+  };
+
+  try {
+    const bridge = createTauriBridge();
+
+    const syncResult = await bridge.batchSync("img-1", ["exposure", "temperature"]);
+    assert.equal(calls.at(-1).command, "batch_sync");
+    assert.deepEqual(calls.at(-1).args.operationTypes, ["exposure", "temperature"]);
+    assert.equal(syncResult.updatedCount, 3);
+
+    const applyResult = await bridge.applyPreset("warm", "img-2");
+    assert.equal(calls.at(-1).command, "apply_preset");
+    assert.equal(calls.at(-1).args.presetId, "warm");
+    assert.equal(calls.at(-1).args.targetImageId, "img-2");
+    assert.equal(applyResult.appliedFromPreset, "Test");
+
+    const license = await bridge.checkLicense();
+    assert.equal(calls.at(-1).command, "check_license");
+    assert.equal(license.activated, false);
+    assert.ok(license.reason);
+  } finally {
+    delete globalThis.__TAURI__;
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Recipe <-> controls mapping (exported from main.js)
 // ---------------------------------------------------------------------------

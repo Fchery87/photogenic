@@ -146,6 +146,25 @@ async function refreshLibrary() {
   }
 }
 
+async function refreshPresetList() {
+  const select = $("preset-select");
+  const applyBtn = $("btn-apply-preset");
+  if (!select) return;
+  if (!bridge.available) return;
+  try {
+    const presets = await bridge.listPresets();
+    select.innerHTML = '<option value="">— Load Preset —</option>';
+    for (const p of presets) {
+      const opt = document.createElement("option");
+      opt.value = p.preset_id || p.presetId;
+      opt.textContent = p.name;
+      select.appendChild(opt);
+    }
+    select.disabled = false;
+    if (applyBtn) applyBtn.disabled = false;
+  } catch { /* non-fatal */ }
+}
+
 function renderLibrary() {
   const grid = $("library-grid");
   if (!grid) return;
@@ -339,22 +358,78 @@ function init() {
     try {
       await bridge.savePreset(presetId, name, currentRecipe);
       setStatus(`Saved preset '${name}'.`);
+      await refreshPresetList();
     } catch (error) {
       setStatus(`Preset save failed: ${error.message}`);
     }
   });
-  $("btn-batch-sync")?.addEventListener("click", () => {
+  // Load preset list when backend is available
+  if (bridge.available) refreshPresetList();
+  // Criterion 7: Apply preset with validation; invalid presets are rejected
+  $("btn-apply-preset")?.addEventListener("click", async () => {
+    const presetId = $("preset-select")?.value;
+    if (!presetId) {
+      setStatus("Select a preset to apply.");
+      return;
+    }
+    if (!selectedImageId) {
+      setStatus("Select an image before applying a preset.");
+      return;
+    }
+    try {
+      const result = await bridge.applyPreset(presetId, selectedImageId);
+      currentRecipe = result.recipe;
+      controlsFromRecipe(currentRecipe, (id, val) => {
+        const input = $(`ctrl-${id}`);
+        if (input) input.value = val;
+      }, (id, val) => {
+        const sel = $(`ctrl-${id}`);
+        if (sel) sel.value = val;
+      });
+      const revEl = $("recipe-revision");
+      if (revEl) revEl.textContent = `r${result.revision}`;
+      setStatus(`Applied preset '${result.appliedFromPreset}' to ${selectedImageId}.`);
+    } catch (error) {
+      // Criterion 7: Invalid preset operations are rejected with user-visible message
+      setStatus(`Preset rejected: ${error.message}`);
+    }
+  });
+  $("btn-batch-sync")?.addEventListener("click", async () => {
+    if (!selectedImageId) {
+      setStatus("Select a source image first.");
+      return;
+    }
     const types = [...document.querySelectorAll(".sync-type:checked")].map((el) => el.value);
     if (types.length === 0) {
       setStatus("Select at least one operation type to sync.");
       return;
     }
-    setStatus(`Batch sync [${types.join(", ")}] to ${libraryImages.length} images (pending Tauri batch command).`);
+    setStatus(`Batch syncing [${types.join(", ")}]...`);
+    try {
+      const result = await bridge.batchSync(selectedImageId, types);
+      setStatus(`Batch sync complete: ${result.message} (updated: ${result.updatedCount}, skipped: ${result.skippedCount}).`);
+      refreshLibrary();
+    } catch (error) {
+      setStatus(`Batch sync failed: ${error.message}`);
+    }
   });
-  $("btn-export")?.addEventListener("click", () => {
+  $("btn-export")?.addEventListener("click", async () => {
     if (!selectedImageId) {
       setStatus("Select an image to export.");
       return;
+    }
+    // Criterion 9: Export must not bypass licensing
+    if (bridge.available) {
+      try {
+        const license = await bridge.checkLicense();
+        if (!license.activated) {
+          setStatus(`Export blocked: ${license.reason}`);
+          return;
+        }
+      } catch (error) {
+        setStatus(`License check failed: ${error.message}`);
+        return;
+      }
     }
     const format = $("export-format")?.value || "jpeg";
     const quality = parseInt($("export-quality")?.value ?? "92", 10);

@@ -3,6 +3,7 @@ use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 use rusqlite::{params, Connection, OptionalExtension};
+use serde_json::Value;
 
 use super::schema::{MIGRATION_0001, SCHEMA_VERSION};
 use crate::core::Recipe;
@@ -40,6 +41,13 @@ pub struct WorkspaceStateEntry {
     pub workspace_id: String,
     pub state_json: String,
     pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct BatchSyncResult {
+    pub updated_count: u32,
+    pub skipped_count: u32,
+    pub message: String,
 }
 
 pub struct SqliteCatalogStore {
@@ -378,6 +386,96 @@ impl SqliteCatalogStore {
             .optional()?;
         Ok(result)
     }
+
+    // ------------------------------------------------------------------
+    // Batch sync
+    // ------------------------------------------------------------------
+
+    /// Copy selected operation types from a source image's recipe to all
+    /// other images in the library.  Operations of the selected types are
+    /// replaced; all other operations are preserved.
+    pub fn batch_sync_operations(
+        &self,
+        source_image_id: &str,
+        operation_types: &[String],
+        updated_at: &str,
+    ) -> rusqlite::Result<BatchSyncResult> {
+        // --- Resolve source recipe ---
+        let source_entry = self
+            .get_recipe(source_image_id)?
+            .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)?;
+
+        // Extract source operations whose type is in the selection.
+        let source_ops: Vec<Value> = source_entry
+            .recipe
+            .operations()
+            .iter()
+            .filter(|op| {
+                op.get("type")
+                    .and_then(Value::as_str)
+                    .map(|t| operation_types.iter().any(|ot| ot == t))
+                    .unwrap_or(false)
+            })
+            .cloned()
+            .collect();
+
+        if source_ops.is_empty() {
+            return Ok(BatchSyncResult {
+                updated_count: 0,
+                skipped_count: 0,
+                message: "No matching operations found in source recipe".to_string(),
+            });
+        }
+
+        // --- Iterate all images ---
+        let images = self.list_imported_images()?;
+        let mut updated = 0u32;
+        let mut skipped = 0u32;
+
+        for image in &images {
+            if image.image_id == source_image_id {
+                skipped += 1;
+                continue;
+            }
+
+            // Load existing target recipe (or start fresh).
+            let target_recipe = self
+                .get_recipe(&image.image_id)?
+                .map(|e| e.recipe)
+                .unwrap_or_default();
+
+            // Merge: remove ops of selected types, then append source ops.
+            let mut target_value = target_recipe.to_value();
+            if let Some(obj) = target_value.as_object_mut() {
+                if let Some(Value::Array(ops)) = obj.get_mut("operations") {
+                    ops.retain(|op| {
+                        op.get("type")
+                            .and_then(Value::as_str)
+                            .map(|t| !operation_types.iter().any(|ot| ot == t))
+                            .unwrap_or(true)
+                    });
+                    for op in &source_ops {
+                        ops.push(op.clone());
+                    }
+                }
+            }
+
+            let merged = Recipe::from_value(target_value)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            self.save_recipe(&image.image_id, &merged, updated_at)?;
+            updated += 1;
+        }
+
+        Ok(BatchSyncResult {
+            updated_count: updated,
+            skipped_count: skipped,
+            message: format!(
+                "Synced {} operation type(s) to {} image(s)",
+                operation_types.len(),
+                updated
+            ),
+        })
+    }
 }
 
 #[cfg(test)]
@@ -386,7 +484,10 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use serde_json::Value;
+
     use crate::core::Recipe;
+    use super::ImportedImageRow;
 
     use super::SqliteCatalogStore;
 
@@ -514,6 +615,96 @@ mod tests {
 
         // Non-existent workspace returns None
         assert!(reopened.get_workspace_state("nonexistent").unwrap().is_none());
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn batch_sync_replaces_selected_operation_types() {
+        let path = temp_db_path();
+        let store = SqliteCatalogStore::open(&path).unwrap();
+        let ts = "2025-07-01T00:00:00Z";
+
+        // Source image with exposure + temperature + contrast
+        let source_recipe = Recipe::from_value(serde_json::json!({
+            "version": 1,
+            "operations": [
+                {"type":"exposure","params":{"ev":0.5}},
+                {"type":"temperature","params":{"kelvinDelta":2000}},
+                {"type":"contrast","params":{"amount":15}}
+            ]
+        })).unwrap();
+        store.save_recipe("source", &source_recipe, ts).unwrap();
+        store.upsert_imported_image(
+            &ImportedImageRow { image_id: "source".to_string(), source_path: "/src/img1.raw".to_string(), file_name: "img1.raw".to_string(), observed_format: "raw".to_string(), byte_size: None, modified_at: None },
+            ts,
+        ).unwrap();
+
+        // Target image with its own exposure + sharpen
+        let target_recipe = Recipe::from_value(serde_json::json!({
+            "version": 1,
+            "operations": [
+                {"type":"exposure","params":{"ev":-1.0}},
+                {"type":"sharpen","params":{"amount":50}}
+            ]
+        })).unwrap();
+        store.save_recipe("target", &target_recipe, ts).unwrap();
+        store.upsert_imported_image(
+            &ImportedImageRow { image_id: "target".to_string(), source_path: "/src/img2.raw".to_string(), file_name: "img2.raw".to_string(), observed_format: "raw".to_string(), byte_size: None, modified_at: None },
+            ts,
+        ).unwrap();
+
+        // Sync exposure + temperature (NOT contrast, NOT sharpen)
+        let result = store
+            .batch_sync_operations("source", &["exposure".to_string(), "temperature".to_string()], ts)
+            .unwrap();
+
+        assert_eq!(result.updated_count, 1);
+        assert_eq!(result.skipped_count, 1);
+
+        // Verify target now has source's exposure+temperature and keeps its sharpen
+        let updated = store.get_recipe("target").unwrap().unwrap();
+        let types = updated.recipe.operation_types();
+        assert!(types.contains(&"exposure"), "should have exposure from source");
+        assert!(types.contains(&"temperature"), "should have temperature from source");
+        assert!(types.contains(&"sharpen"), "should keep original sharpen");
+        assert!(!types.contains(&"contrast"), "should NOT have contrast (not synced)");
+
+        // Verify the exposure value was replaced (source's 0.5, not target's -1.0)
+        let exposure_op = updated.recipe.operations()
+            .iter()
+            .find(|op| op.get("type").and_then(Value::as_str) == Some("exposure"))
+            .unwrap();
+        assert_eq!(
+            exposure_op.get("params").and_then(|p| p.get("ev")).and_then(Value::as_f64),
+            Some(0.5)
+        );
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn batch_sync_no_matching_operations_is_noop() {
+        let path = temp_db_path();
+        let store = SqliteCatalogStore::open(&path).unwrap();
+        let ts = "2025-07-01T00:00:00Z";
+
+        let source_recipe = Recipe::from_value(serde_json::json!({
+            "version": 1,
+            "operations": [{"type":"contrast","params":{"amount":10}}]
+        })).unwrap();
+        store.save_recipe("source", &source_recipe, ts).unwrap();
+        store.upsert_imported_image(
+            &ImportedImageRow { image_id: "source".to_string(), source_path: "/src/img1.raw".to_string(), file_name: "img1.raw".to_string(), observed_format: "raw".to_string(), byte_size: None, modified_at: None },
+            ts,
+        ).unwrap();
+
+        let result = store
+            .batch_sync_operations("source", &["exposure".to_string()], ts)
+            .unwrap();
+
+        assert_eq!(result.updated_count, 0);
+        assert!(result.message.contains("No matching"));
 
         fs::remove_file(path).ok();
     }

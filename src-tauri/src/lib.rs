@@ -378,6 +378,7 @@ use tauri::Manager;
 
 struct AppState {
   catalog: Mutex<catalog::SqliteCatalogStore>,
+  data_dir: std::path::PathBuf,
 }
 
 #[tauri::command]
@@ -481,6 +482,97 @@ fn save_workspace_state(
     .map_err(|e| e.to_string())
 }
 
+/// Criterion 8: Batch Sync — copy selected operation types from a source
+/// image's recipe to all other images in the library.
+#[tauri::command]
+fn batch_sync(
+  state: tauri::State<AppState>,
+  source_image_id: String,
+  operation_types: Vec<String>,
+) -> Result<catalog::BatchSyncResult, String> {
+  let now = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| format!("{}.{:03}Z", d.as_secs(), d.subsec_millis()))
+    .unwrap_or_else(|_| "1970-01-01T00:00:00.000Z".to_string());
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  store
+    .batch_sync_operations(&source_image_id, &operation_types, &now)
+    .map_err(|e| e.to_string())
+}
+
+/// Criterion 7: Apply a preset to an image with full recipe validation.
+/// Returns an error if the preset recipe is structurally invalid.
+#[tauri::command]
+fn apply_preset(
+  state: tauri::State<AppState>,
+  preset_id: String,
+  target_image_id: String,
+) -> Result<serde_json::Value, String> {
+  let store = state.catalog.lock().map_err(|e| e.to_string())?;
+  let preset = store
+    .get_preset(&preset_id)
+    .map_err(|e| e.to_string())?
+    .ok_or_else(|| format!("Preset not found: {}", preset_id))?;
+
+  // Validate the preset recipe by parsing it through the schema.
+  let recipe_value: serde_json::Value =
+    serde_json::from_str(&preset.recipe_json)
+      .map_err(|e| format!("Preset recipe JSON is malformed: {e}"))?;
+  let recipe =
+    core::Recipe::from_value(recipe_value).map_err(|e| e.to_string())?;
+
+  // Persist to the target image.
+  let now = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| format!("{}.{:03}Z", d.as_secs(), d.subsec_millis()))
+    .unwrap_or_else(|_| "1970-01-01T00:00:00.000Z".to_string());
+  let entry = store
+    .save_recipe(&target_image_id, &recipe, &now)
+    .map_err(|e| e.to_string())?;
+
+  Ok(serde_json::json!({
+    "imageId": entry.image_id,
+    "recipe": entry.recipe.to_value(),
+    "recipeFingerprint": entry.recipe_fingerprint,
+    "revision": entry.revision,
+    "appliedFromPreset": preset.name,
+  }))
+}
+
+/// Criterion 9: Check licensing state before allowing export.
+/// Reads a `license.json` file from the app data directory.
+#[tauri::command]
+fn check_license(state: tauri::State<AppState>) -> Result<serde_json::Value, String> {
+  let license_path = state.data_dir.join("license.json");
+
+  if !license_path.exists() {
+    return Ok(serde_json::json!({
+      "activated": false,
+      "reason": "No license file found. Activate a license to enable export."
+    }));
+  }
+
+  let content = std::fs::read_to_string(&license_path)
+    .map_err(|e| format!("Failed to read license file: {e}"))?;
+  let license: serde_json::Value = serde_json::from_str(&content)
+    .map_err(|e| format!("License file is malformed: {e}"))?;
+
+  let has_signature = license.get("signature").is_some();
+  let license_id = license
+    .get("licenseId")
+    .and_then(|v| v.as_str())
+    .unwrap_or("unknown");
+
+  Ok(serde_json::json!({
+    "activated": has_signature,
+    "reason": if has_signature {
+      format!("License active: {}", license_id)
+    } else {
+      "License file missing signature".to_string()
+    }
+  }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -496,6 +588,7 @@ pub fn run() {
         .expect("failed to open catalog database");
       app.manage(AppState {
         catalog: Mutex::new(store),
+        data_dir: data_dir.clone(),
       });
       Ok(())
     })
@@ -509,8 +602,11 @@ pub fn run() {
       save_recipe,
       list_presets,
       save_preset,
+      apply_preset,
       get_workspace_state,
-      save_workspace_state
+      save_workspace_state,
+      batch_sync,
+      check_license
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

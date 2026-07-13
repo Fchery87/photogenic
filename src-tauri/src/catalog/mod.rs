@@ -2,4 +2,4 @@ pub mod import;
 pub mod schema;
 pub mod store;
 
-pub use store::{CatalogRecipeEntry, ImportedImageRow, PresetEntry, SqliteCatalogStore, WorkspaceStateEntry};
+pub use store::{BatchSyncResult, CatalogRecipeEntry, ImportedImageRow, PresetEntry, SqliteCatalogStore, WorkspaceStateEntry};

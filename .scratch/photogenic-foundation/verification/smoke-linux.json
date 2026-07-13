@@ -1,8 +1,8 @@
 {
   "platform": "linux",
   "arch": "x64",
-  "startedAt": "2026-07-13T03:19:43.580Z",
-  "finishedAt": "2026-07-13T03:19:49.421Z",
+  "startedAt": "2026-07-13T04:02:39.729Z",
+  "finishedAt": "2026-07-13T04:02:42.174Z",
   "overall": "pass",
   "steps": [
     {
@@ -10,8 +10,8 @@
       "status": "pass",
       "detail": {
         "runtimeBridge": false,
-        "cliAvailable": false,
-        "cliVersion": null,
+        "cliAvailable": true,
+        "cliVersion": "tauri-cli 2.11.4",
         "note": "No Tauri runtime bridge (headless/CI). Workflows run in Node fallback mode."
       }
     },
@@ -40,9 +40,9 @@
       "detail": {
         "imported": 3,
         "imageIds": [
-          "2ecce17b3e89b19d",
-          "86b6f27ded455cfd",
-          "b8c78a6165b12671"
+          "305b8116a6e5ff5d",
+          "21f5b70e14b0367b",
+          "4b0d19d5ba16b347"
         ]
       }
     },
@@ -50,15 +50,15 @@
       "name": "cull",
       "status": "pass",
       "detail": {
-        "rated": "2ecce17b3e89b19d",
-        "rejected": "b8c78a6165b12671"
+        "rated": "305b8116a6e5ff5d",
+        "rejected": "4b0d19d5ba16b347"
       }
     },
     {
       "name": "develop",
       "status": "pass",
       "detail": {
-        "imageId": "2ecce17b3e89b19d",
+        "imageId": "305b8116a6e5ff5d",
         "revision": 1
       }
     },
@@ -67,7 +67,7 @@
       "status": "pass",
       "detail": {
         "presetId": "preset-warm-sunset",
-        "appliedTo": "86b6f27ded455cfd"
+        "appliedTo": "21f5b70e14b0367b"
       }
     },
     {
@@ -75,8 +75,8 @@
       "status": "pass",
       "detail": {
         "syncedTo": [
-          "86b6f27ded455cfd",
-          "b8c78a6165b12671"
+          "21f5b70e14b0367b",
+          "4b0d19d5ba16b347"
         ],
         "operationTypes": [
           "exposure"

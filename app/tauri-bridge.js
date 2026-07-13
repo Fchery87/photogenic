@@ -82,5 +82,20 @@ export function createTauriBridge() {
     saveWorkspaceState(workspaceId, stateJson) {
       return call("save_workspace_state", { workspaceId, stateJson });
     },
+
+    /** Batch sync: copy selected operation types from source to all images. */
+    batchSync(sourceImageId, operationTypes) {
+      return call("batch_sync", { sourceImageId, operationTypes });
+    },
+
+    /** Apply a preset to an image with full recipe validation. */
+    applyPreset(presetId, targetImageId) {
+      return call("apply_preset", { presetId, targetImageId });
+    },
+
+    /** Check licensing state (criterion 9: export gating). */
+    checkLicense() {
+      return call("check_license");
+    },
   };
 }
