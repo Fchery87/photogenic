@@ -120,11 +120,10 @@ impl DecodeAdapter {
         let buffer = match format {
             ImageFormat::Png => Self::decode_png(&file_bytes)?,
             ImageFormat::Tiff => Self::decode_tiff(&file_bytes)?,
+            ImageFormat::Jpeg => Self::decode_jpeg(&file_bytes)?,
             // RAW formats (CR2, NEF, ARW, DNG, RAF) require a dedicated RAW decoder
-            // (rawloader or libraw) — not yet integrated. JPEG requires a JPEG decoder.
-            // These return a placeholder so the pipeline can still function in test mode,
-            // documented as unproven for real pixels.
-            ImageFormat::Raw | ImageFormat::Jpeg => {
+            // (rawloader or libraw) — not yet integrated.
+            ImageFormat::Raw => {
                 DecodedImageBuffer::placeholder_linear(1, 1)
             }
         };
@@ -331,6 +330,29 @@ impl DecodeAdapter {
         DecodedImageBuffer::linear_float(width, height, samples)
             .map_err(|error| DecodeError::new(DecodeErrorKind::ReadFailed, error))
     }
+
+    /// Decode a baseline JPEG into linear float RGB samples (0.0–1.0 per channel).
+    /// Uses the pure-Rust `jpeg_decoder` module (no external crate dependency).
+    fn decode_jpeg(file_bytes: &[u8]) -> Result<DecodedImageBuffer, DecodeError> {
+        let decoded = crate::core::jpeg_decoder::decode_jpeg(file_bytes)
+            .map_err(|error| {
+                DecodeError::new(
+                    DecodeErrorKind::ReadFailed,
+                    format!("JPEG decode failed: {error}"),
+                )
+            })?;
+
+        let pixel_count = (decoded.width as usize) * (decoded.height as usize);
+        let mut samples = Vec::with_capacity(pixel_count * 3);
+        for chunk in decoded.rgb.chunks(3) {
+            samples.push(chunk[0] as f32 / 255.0);
+            samples.push(chunk[1] as f32 / 255.0);
+            samples.push(chunk[2] as f32 / 255.0);
+        }
+
+        DecodedImageBuffer::linear_float(decoded.width, decoded.height, samples)
+            .map_err(|error| DecodeError::new(DecodeErrorKind::ReadFailed, error))
+    }
 }
 
 /// Read a big-endian or little-endian u16 from a byte slice.
@@ -405,6 +427,24 @@ mod tests {
         assert_eq!(decoded.buffer().storage(), PixelStorage::PlaceholderLinear);
         assert!(decoded.buffer().width() > 0);
         assert!(decoded.buffer().height() > 0);
+    }
+
+    #[test]
+    fn decode_jpeg_to_real_linear_float_samples() {
+        let adapter = DecodeAdapter::new();
+        let decoded = adapter.decode_source(fixture_path("test-gray.jpeg")).unwrap();
+
+        assert_eq!(decoded.format(), ImageFormat::Jpeg);
+        assert_eq!(decoded.buffer().storage(), PixelStorage::LinearFloat32);
+        assert_eq!(decoded.buffer().width(), 8);
+        assert_eq!(decoded.buffer().height(), 8);
+
+        // Solid gray (Y=128, Cb=128, Cr=128) → RGB ≈ 128/255 ≈ 0.502
+        let samples = decoded.buffer().samples();
+        assert_eq!(samples.len(), 8 * 8 * 3);
+        for i in 0..samples.len() {
+            assert!((samples[i] - 128.0 / 255.0).abs() < 0.05, "pixel {} ≈ gray", i);
+        }
     }
 
     #[test]

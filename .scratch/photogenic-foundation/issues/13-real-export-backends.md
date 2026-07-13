@@ -14,6 +14,17 @@ Verified: `npm test` 438/438 (+9 batch execution tests), `cargo test` 73/73, `np
 
 Still open (environment-blocked): the acceptance criterion “writes real Pipeline outputs” requires the native GPU/RAW pipeline to produce pixels (Issue 09 RAW decode stub). The current software renderers produce real JPEG/PNG/TIFF-16 image bytes, and the `requireNativePipeline` flag (Issue 09 C7) correctly surfaces native-unavailable in production — but end-to-end native pixel export from a real RAW source remains future work.
 
+## Progress (native PNG export, 2026-07-12)
+- **`export_image` Tauri command** (`src-tauri/src/lib.rs`): decodes a real PNG/TIFF source file via `DecodeAdapter::decode_source`, renders through `CpuPipeline` with `CpuRenderMode::Export`, converts linear float samples to 8-bit sRGB, encodes as a real PNG file via the `png` crate encoder, and writes to disk with a `RecipeFingerprint` text chunk embedded for provenance. Rust test verifies the output file is created, has matching dimensions when re-decoded, and includes recipe fingerprint metadata.
+- This closes the end-to-end gap for PNG sources: decode → pipeline render → encode → file write.
+Verified: `cargo test` 82/82 (+1 export test), `npm test` 453/453 (+1 bridge test).
+
+## Progress (TIFF export encoding, 2026-07-13)
+- **`export_image` now supports TIFF output** (`src-tauri/src/lib.rs`): adds `output_format` parameter accepting `"png"` (default), `"tiff-8"`, or `"tiff-16"`. The pure-Rust TIFF encoder (`src-tauri/src/core/tiff_encoder.rs`) produces uncompressed little-endian RGB TIFF files. The 16-bit path converts linear float samples to 16-bit sRGB, doubling bit depth for higher-fidelity export.
+- **Export UI updated**: format dropdown now offers PNG (8-bit), TIFF (8-bit), and TIFF (16-bit). Output path extension matches the format.
+- Rust tests verify TIFF-8 and TIFF-16 outputs: header validity, correct dimensions, non-zero file size, and 16-bit files being larger than 8-bit equivalents.
+Verified: `cargo test` 91/91 (+2 TIFF export tests, +3 TIFF encoder tests).
+
 ## Goal
 Replace placeholder export companions with real native Pipeline export outputs for JPEG, PNG, and TIFF-16, including deterministic batch export behavior.
 

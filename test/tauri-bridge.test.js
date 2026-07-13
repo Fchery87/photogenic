@@ -170,6 +170,111 @@ test("bridge calls batch_sync, apply_preset, check_license with correct args", a
   }
 });
 
+test("bridge calls update_culling and list_culling with correct args", async () => {
+  const calls = [];
+  globalThis.__TAURI__ = {
+    core: {
+      invoke: async (command, args) => {
+        calls.push({ command, args });
+        if (command === "update_culling")
+          return { imageId: args.imageId, rating: args.rating ?? 0, flagged: args.flagged ?? false, rejected: false, colorLabel: null, updatedAt: "now" };
+        if (command === "list_culling")
+          return [{ imageId: "img-1", rating: 3, flagged: true, rejected: false, colorLabel: "red" }];
+        return null;
+      },
+    },
+  };
+
+  try {
+    const bridge = createTauriBridge();
+
+    const updated = await bridge.updateCulling("img-1", { rating: 4, flagged: true });
+    assert.equal(calls.at(-1).command, "update_culling");
+    assert.equal(calls.at(-1).args.imageId, "img-1");
+    assert.equal(calls.at(-1).args.rating, 4);
+    assert.equal(calls.at(-1).args.flagged, true);
+    assert.equal(updated.rating, 4);
+
+    const all = await bridge.listCulling();
+    assert.equal(calls.at(-1).command, "list_culling");
+    assert.equal(all.length, 1);
+    assert.equal(all[0].rating, 3);
+  } finally {
+    delete globalThis.__TAURI__;
+  }
+});
+
+test("bridge calls export_image with correct args", async () => {
+  const calls = [];
+  globalThis.__TAURI__ = {
+    core: {
+      invoke: async (command, args) => {
+        calls.push({ command, args });
+        if (command === "export_image")
+          return {
+            outputPath: args.outputPath,
+            width: 4,
+            height: 4,
+            format: "png",
+            fileSizeBytes: 128,
+            recipeFingerprint: "abc123",
+          };
+        return null;
+      },
+    },
+  };
+
+  try {
+    const bridge = createTauriBridge();
+    const result = await bridge.exportImage(
+      "img-1",
+      "/photos/test.png",
+      { version: 1, operations: [] },
+      "/output/test-edited.png",
+      "tiff-16",
+    );
+    assert.equal(calls.at(-1).command, "export_image");
+    assert.equal(calls.at(-1).args.imageId, "img-1");
+    assert.equal(calls.at(-1).args.sourcePath, "/photos/test.png");
+    assert.equal(calls.at(-1).args.outputPath, "/output/test-edited.png");
+    assert.equal(calls.at(-1).args.outputFormat, "tiff-16");
+    assert.equal(result.format, "png");
+    assert.equal(result.width, 4);
+    assert.equal(result.fileSizeBytes, 128);
+    assert.ok(result.recipeFingerprint);
+  } finally {
+    delete globalThis.__TAURI__;
+  }
+});
+
+test("bridge calls import_images with correct args", async () => {
+  const calls = [];
+  globalThis.__TAURI__ = {
+    core: {
+      invoke: async (command, args) => {
+        calls.push({ command, args });
+        if (command === "import_images")
+          return {
+            imported: [{ imageId: "img-1", sourcePath: "/a.png", fileName: "a.png", observedFormat: "png" }],
+            skipped: [],
+          };
+        return null;
+      },
+    },
+  };
+
+  try {
+    const bridge = createTauriBridge();
+    const result = await bridge.importImages(["/a.png", "/b.jpg"]);
+    assert.equal(calls.at(-1).command, "import_images");
+    assert.deepEqual(calls.at(-1).args.sourcePaths, ["/a.png", "/b.jpg"]);
+    assert.equal(result.imported.length, 1);
+    assert.equal(result.imported[0].observedFormat, "png");
+  } finally {
+    delete globalThis.__TAURI__;
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Recipe <-> controls mapping (exported from main.js)
 // ---------------------------------------------------------------------------

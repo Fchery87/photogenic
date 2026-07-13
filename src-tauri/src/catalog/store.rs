@@ -50,6 +50,19 @@ pub struct BatchSyncResult {
     pub message: String,
 }
 
+/// Culling metadata for a library image.
+/// `rating` is 0-5, `flagged`/`rejected` are booleans stored as 0/1,
+/// `color_label` is an optional string (e.g. "red", "blue").
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+pub struct CullingMetadata {
+    pub image_id: String,
+    pub rating: i32,
+    pub flagged: bool,
+    pub rejected: bool,
+    pub color_label: Option<String>,
+    pub updated_at: String,
+}
+
 pub struct SqliteCatalogStore {
     connection: Connection,
 }
@@ -476,6 +489,134 @@ impl SqliteCatalogStore {
             ),
         })
     }
+
+    // ------------------------------------------------------------------
+    // Culling metadata
+    // ------------------------------------------------------------------
+
+    /// Upsert culling metadata for an image. Any field set to `Some` is
+    /// updated; `None` fields are left unchanged.
+    pub fn set_culling_metadata(
+        &self,
+        image_id: &str,
+        rating: Option<i32>,
+        flagged: Option<bool>,
+        rejected: Option<bool>,
+        color_label: Option<Option<&str>>, // outer None = no change, inner None = clear
+        updated_at: &str,
+    ) -> rusqlite::Result<CullingMetadata> {
+        // Ensure the image exists in catalog_images
+        self.connection.execute(
+            "INSERT INTO catalog_images (image_id, source_path, imported_at, updated_at)
+             VALUES (?1, NULL, ?2, ?2)
+             ON CONFLICT(image_id) DO UPDATE SET updated_at = excluded.updated_at",
+            params![image_id, updated_at],
+        )?;
+
+        // Check if culling row exists
+        let existing: Option<()> = self
+            .connection
+            .query_row(
+                "SELECT 1 FROM library_culling_metadata WHERE image_id = ?1",
+                [image_id],
+                |_| Ok(()),
+            )
+            .optional()?;
+
+        if existing.is_none() {
+            // Insert with defaults, then we'll update specific fields
+            self.connection.execute(
+                "INSERT INTO library_culling_metadata (image_id, rating, flagged, rejected, color_label, updated_at)
+                 VALUES (?1, 0, 0, 0, NULL, ?2)",
+                params![image_id, updated_at],
+            )?;
+        }
+
+        // Build dynamic UPDATE for only the fields that changed
+        let mut sets: Vec<String> = Vec::new();
+        let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(image_id.to_string())];
+        let mut idx = 2usize; // ?1 is image_id
+
+        if let Some(r) = rating {
+            sets.push(format!("rating = ?{}", idx));
+            params_vec.push(Box::new(r));
+            idx += 1;
+        }
+        if let Some(f) = flagged {
+            sets.push(format!("flagged = ?{}", idx));
+            params_vec.push(Box::new(f as i32));
+            idx += 1;
+        }
+        if let Some(r) = rejected {
+            sets.push(format!("rejected = ?{}", idx));
+            params_vec.push(Box::new(r as i32));
+            idx += 1;
+        }
+        if let Some(cl) = color_label {
+            sets.push(format!("color_label = ?{}", idx));
+            params_vec.push(Box::new(cl.map(|s| s.to_string())));
+            idx += 1;
+        }
+
+        sets.push(format!("updated_at = ?{}", idx));
+        params_vec.push(Box::new(updated_at.to_string()));
+
+        if !sets.is_empty() {
+            let sql = format!(
+                "UPDATE library_culling_metadata SET {} WHERE image_id = ?1",
+                sets.join(", ")
+            );
+            let param_refs: Vec<&dyn rusqlite::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+            self.connection.execute(&sql, param_refs.as_slice())?;
+        }
+
+        // Return the full metadata
+        self.get_culling_metadata(image_id)?
+            .ok_or_else(|| {
+                rusqlite::Error::QueryReturnedNoRows
+            })
+    }
+
+    pub fn get_culling_metadata(&self, image_id: &str) -> rusqlite::Result<Option<CullingMetadata>> {
+        self.connection
+            .query_row(
+                "SELECT image_id, rating, flagged, rejected, color_label, updated_at
+                 FROM library_culling_metadata WHERE image_id = ?1",
+                [image_id],
+                |row| {
+                    Ok(CullingMetadata {
+                        image_id: row.get(0)?,
+                        rating: row.get(1)?,
+                        flagged: row.get::<_, i32>(2)? != 0,
+                        rejected: row.get::<_, i32>(3)? != 0,
+                        color_label: row.get(4)?,
+                        updated_at: row.get(5)?,
+                    })
+                },
+            )
+            .optional()
+            .map(|opt| opt)
+    }
+
+    /// List culling metadata for all images that have entries.
+    pub fn list_culling_metadata(&self) -> rusqlite::Result<Vec<CullingMetadata>> {
+        let mut stmt = self.connection.prepare(
+            "SELECT image_id, rating, flagged, rejected, color_label, updated_at
+             FROM library_culling_metadata ORDER BY image_id ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(CullingMetadata {
+                image_id: row.get(0)?,
+                rating: row.get(1)?,
+                flagged: row.get::<_, i32>(2)? != 0,
+                rejected: row.get::<_, i32>(3)? != 0,
+                color_label: row.get(4)?,
+                updated_at: row.get(5)?,
+            })
+        })?;
+        rows.collect()
+    }
 }
 
 #[cfg(test)]
@@ -705,6 +846,57 @@ mod tests {
 
         assert_eq!(result.updated_count, 0);
         assert!(result.message.contains("No matching"));
+
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn culling_metadata_partial_updates_and_persists() {
+        let path = temp_db_path();
+        let store = SqliteCatalogStore::open(&path).unwrap();
+        let ts = "2025-07-01T00:00:00Z";
+
+        // Set rating only
+        let r1 = store.set_culling_metadata("img-a", Some(3), None, None, None, ts).unwrap();
+        assert_eq!(r1.rating, 3);
+        assert!(!r1.flagged);
+        assert!(!r1.rejected);
+        assert_eq!(r1.color_label, None);
+
+        // Set flagged only — rating should persist
+        let r2 = store.set_culling_metadata("img-a", None, Some(true), None, None, ts).unwrap();
+        assert_eq!(r2.rating, 3);
+        assert!(r2.flagged);
+
+        // Set color label
+        let r3 = store.set_culling_metadata("img-a", None, None, None, Some(Some("red")), ts).unwrap();
+        assert_eq!(r3.color_label.as_deref(), Some("red"));
+        assert_eq!(r3.rating, 3);
+        assert!(r2.flagged);
+
+        // Reject
+        let r4 = store.set_culling_metadata("img-a", None, None, Some(true), None, ts).unwrap();
+        assert!(r4.rejected);
+
+        // Clear color label
+        let r5 = store.set_culling_metadata("img-a", None, None, None, Some(None), ts).unwrap();
+        assert_eq!(r5.color_label, None);
+
+        // Survives restart
+        let reopened = SqliteCatalogStore::open(&path).unwrap();
+        let loaded = reopened.get_culling_metadata("img-a").unwrap().unwrap();
+        assert_eq!(loaded.rating, 3);
+        assert!(loaded.flagged);
+        assert!(loaded.rejected);
+        assert_eq!(loaded.color_label, None);
+
+        // Non-existent image returns None
+        assert!(reopened.get_culling_metadata("nope").unwrap().is_none());
+
+        // List returns all entries
+        store.set_culling_metadata("img-b", Some(5), Some(true), None, Some(Some("blue")), ts).unwrap();
+        let all = reopened.list_culling_metadata().unwrap();
+        assert_eq!(all.len(), 2);
 
         fs::remove_file(path).ok();
     }

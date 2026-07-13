@@ -70,6 +70,42 @@ body { background: var(--bg); color: var(--text); overflow: hidden; }
 .library-item .meta .format { font-size: 0.72rem; color: var(--text-dim); }
 .library-item .rating { color: var(--yellow); font-size: 0.75rem; }
 
+/* Culling controls */
+.library-item .culling { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.library-item .stars { display: flex; gap: 1px; cursor: pointer; }
+.library-item .star { color: var(--text-dim); font-size: 0.8rem; line-height: 1; user-select: none; }
+.library-item .star--on { color: var(--yellow); }
+.library-item .star:hover { color: var(--yellow); opacity: 0.7; }
+.library-item .culling-actions { display: flex; gap: 4px; align-items: center; }
+.library-item .cull-btn {
+  background: none; border: 1px solid var(--border); color: var(--text-dim);
+  border-radius: 3px; cursor: pointer; font-size: 0.7rem; padding: 1px 4px; line-height: 1;
+}
+.library-item .cull-btn:hover { color: var(--text); border-color: var(--text-dim); }
+.library-item .cull-btn--active { color: var(--yellow); border-color: var(--yellow); }
+.library-item .cull-btn--reject { color: #f44; border-color: #f44; }
+.library-item .color-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.library-item .color-dot--red { background: #e33; }
+.library-item .color-dot--yellow { background: #ec3; }
+.library-item .color-dot--green { background: #3e3; }
+.library-item .color-dot--blue { background: #36f; }
+.library-item .color-dot--purple { background: #a3f; }
+
+/* Preset select */
+.preset-select {
+  background: var(--bg-input); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 2px 6px; font-size: 0.8rem;
+}
+
+/* Provenance bar */
+.provenance-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.7); color: var(--text-dim);
+  font-size: 0.7rem; padding: 2px 8px; text-align: center;
+  font-family: monospace;
+}
+.preview-area { position: relative; }
+
 /* Preview area */
 .preview-area {
   flex: 1; display: flex; align-items: center; justify-content: center;

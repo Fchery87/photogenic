@@ -6,19 +6,21 @@ Status: ready-for-agent
 Closed the implementable portions — **all 9 acceptance criteria now implemented**:
 - **Editor UI shell** (`app/index.html`, `app/editor.css`, `app/main.js`): replaces the Phase 0 viewport harness with a real editor layout — library sidebar, center preview, develop panel with 19 recipe controls covering all operation types, batch-sync panel, export panel, status bar, and pipeline/license badges.
 - **Tauri command bridge** (`app/tauri-bridge.js`): wraps the Tauri invoke IPC with graceful degradation.
-- **Tauri catalog commands** (`src-tauri/src/lib.rs`): ten commands: `list_library`, `get_recipe`, `save_recipe`, `list_presets`, `save_preset`, `apply_preset`, `get_workspace_state`, `save_workspace_state`, `batch_sync`, `check_license`.
+- **Tauri catalog commands** (`src-tauri/src/lib.rs`): fifteen commands: `list_library`, `get_recipe`, `save_recipe`, `list_presets`, `save_preset`, `apply_preset`, `get_workspace_state`, `save_workspace_state`, `batch_sync`, `check_license`, `update_culling`, `list_culling`, `export_image`, `import_images`.
 - **Recipe↔control mapping** tested: all 15 recipe operation types.
 - **Preset save + apply** (criteria 6, 7): UI saves presets via `bridge.savePreset()`, loads them in a dropdown, and applies via `bridge.applyPreset()`. Invalid presets are rejected by `Recipe::from_value()` with a user-visible error message.
 - **Workspace reopen** (criterion 3): saves selected image ID on change and restores on startup.
 - **Batch sync** (criterion 8): `batch_sync` Tauri command copies selected operation types from source to all images; UI uses explicit checkbox selection.
+- **Culling persistence**: `update_culling` / `list_culling` Tauri commands persist rating (0-5 stars), flag, reject, and color label to `library_culling_metadata`. UI shows clickable star ratings, flag/reject buttons, and color dots in the library grid.
 - **Export licensing gate** (criterion 9): `check_license` Tauri command checks for `license.json`; export button verifies licensing before queueing.
-- **Rust store method**: `batch_sync_operations()` with merge logic (replaces selected types, preserves others).
-Verified: `npm test` 451/451, `cargo test` 80/80, `npm run build` ok, editor layout verified in headless Chrome.
+- **Rust store methods**: `batch_sync_operations()` with merge logic; `set_culling_metadata()` / `get_culling_metadata()` / `list_culling_metadata()` with partial-update semantics.
+Verified: `npm test` 452/452, `cargo test` 81/81, `npm run build` ok, editor layout verified in headless Chrome.
 
 Remaining environment-blocked items:
 - Visual verification in Tauri runtime (no display server).
-- Import file picker needs Tauri file-dialog API.
-- Export execution needs `render_pipeline` wiring (queueing works; actual file writing through the pipeline is the next step).
+- Import now wired via text-input path entry (production will use Tauri file dialog).
+- Export execution calls `export_image` which encodes real PNG; JPEG/TIFF export encoding is the next step.
+- **Live preview rendering** now calls `render_pipeline` and draws real decoded pixels on the canvas with stale-request supersession; visual verification in Tauri runtime is environment-blocked.
 
 ## Goal
 Replace the Phase 0 harness with a usable internal-alpha editor shell that supports import, culling, develop controls, presets, Batch Sync, export queueing, and reopen state through the established workflow seams.

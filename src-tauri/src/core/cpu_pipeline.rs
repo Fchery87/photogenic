@@ -9,6 +9,7 @@ use std::fmt;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CpuRenderMode {
     Preview,
+    Export,
 }
 
 #[derive(Clone, Debug, PartialEq)]

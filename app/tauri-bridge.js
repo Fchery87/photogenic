@@ -97,5 +97,31 @@ export function createTauriBridge() {
     checkLicense() {
       return call("check_license");
     },
+
+    /** Update culling metadata (rating, flag, reject, color label). */
+    updateCulling(imageId, updates) {
+      return call("update_culling", { imageId, ...updates });
+    },
+
+    /** List all culling metadata entries. */
+    listCulling() {
+      return call("list_culling");
+    },
+
+    /** Export: decode → pipeline → encode (PNG/TIFF) → write file. */
+    exportImage(imageId, sourcePath, recipe, outputPath, outputFormat) {
+      return call("export_image", {
+        imageId,
+        sourcePath,
+        recipe,
+        outputPath,
+        outputFormat: outputFormat || undefined,
+      });
+    },
+
+    /** Import source file paths into the catalog. */
+    importImages(sourcePaths) {
+      return call("import_images", { sourcePaths });
+    },
   };
 }

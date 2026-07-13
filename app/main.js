@@ -15,6 +15,7 @@ const bridge = createTauriBridge();
 let selectedImageId = null;
 let currentRecipe = { version: 1, operations: [] };
 let libraryImages = [];
+let cullingMap = {}; // imageId -> { rating, flagged, rejected, colorLabel }
 
 // -- DOM helpers ------------------------------------------------------------
 
@@ -140,6 +141,14 @@ async function refreshLibrary() {
   }
   try {
     libraryImages = await bridge.listLibrary();
+    // Load culling metadata
+    try {
+      const culling = await bridge.listCulling();
+      cullingMap = {};
+      for (const c of culling) {
+        cullingMap[c.image_id || c.imageId] = c;
+      }
+    } catch { /* non-fatal */ }
     renderLibrary();
   } catch (error) {
     setStatus(`Library load failed: ${error.message}`);
@@ -178,14 +187,81 @@ function renderLibrary() {
     item.className = "library-item";
     if (img.image_id === selectedImageId) item.classList.add("selected");
     item.dataset.imageId = img.image_id;
+
+    const culling = cullingMap[img.image_id] || {};
+    const rating = culling.rating || 0;
+    const flagged = culling.flagged || false;
+    const rejected = culling.rejected || false;
+    const colorLabel = culling.color_label || culling.colorLabel || null;
+
+    // Build star rating
+    let starsHtml = "";
+    for (let i = 1; i <= 5; i++) {
+      starsHtml += `<span class="star ${i <= rating ? "star--on" : ""}" data-rating="${i}">★</span>`;
+    }
+
     item.innerHTML = `
       <div class="thumb">${(img.observed_format || "?").toUpperCase().slice(0, 3)}</div>
       <div class="meta">
         <div class="name">${img.file_name || img.image_id}</div>
         <div class="format">${img.observed_format || "unknown"}</div>
       </div>
+      <div class="culling">
+        <div class="stars" data-action="rating">${starsHtml}</div>
+        <div class="culling-actions">
+          <button class="cull-btn ${flagged ? "cull-btn--active" : ""}" data-action="flag" title="Flag">⚑</button>
+          <button class="cull-btn ${rejected ? "cull-btn--reject" : ""}" data-action="reject" title="Reject">✕</button>
+          ${colorLabel ? `<span class="color-dot color-dot--${colorLabel}"></span>` : ""}
+        </div>
+      </div>
     `;
-    item.addEventListener("click", () => selectImage(img.image_id));
+
+    // Image selection
+    item.addEventListener("click", (e) => {
+      // Don't select when clicking culling controls
+      if (e.target.closest(".culling")) return;
+      selectImage(img.image_id);
+    });
+
+    // Star rating
+    item.querySelectorAll(".star").forEach((star) => {
+      star.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const r = parseInt(star.dataset.rating, 10);
+        try {
+          const updated = await bridge.updateCulling(img.image_id, { rating: r });
+          cullingMap[img.image_id] = updated;
+          renderLibrary();
+        } catch (err) {
+          setStatus(`Rating failed: ${err.message}`);
+        }
+      });
+    });
+
+    // Flag toggle
+    item.querySelector('[data-action="flag"]')?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        const updated = await bridge.updateCulling(img.image_id, { flagged: !flagged });
+        cullingMap[img.image_id] = updated;
+        renderLibrary();
+      } catch (err) {
+        setStatus(`Flag failed: ${err.message}`);
+      }
+    });
+
+    // Reject toggle
+    item.querySelector('[data-action="reject"]')?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        const updated = await bridge.updateCulling(img.image_id, { rejected: !rejected });
+        cullingMap[img.image_id] = updated;
+        renderLibrary();
+      } catch (err) {
+        setStatus(`Reject failed: ${err.message}`);
+      }
+    });
+
     grid.appendChild(item);
   }
 }
@@ -233,6 +309,112 @@ async function selectImage(imageId) {
     }
   } catch (error) {
     setStatus(`Recipe load failed: ${error.message}`);
+  }
+
+  // Render preview after loading recipe
+  renderPreview();
+}
+
+let previewRenderTimer = null;
+let activePreviewRequest = null; // for stale-request supersession
+
+/** Debounced preview render: called after develop control changes.
+ *  Cancels stale in-flight requests per criterion 4 (supersede stale preview). */
+function schedulePreviewRender() {
+  if (previewRenderTimer) clearTimeout(previewRenderTimer);
+  previewRenderTimer = setTimeout(renderPreview, 150);
+}
+
+async function renderPreview() {
+  if (!selectedImageId) return;
+  if (!bridge.available) {
+    const empty = $("preview-empty");
+    const canvas = $("preview-canvas");
+    if (empty) empty.style.display = "block";
+    if (canvas) canvas.style.display = "none";
+    return;
+  }
+
+  const img = libraryImages.find((i) => i.image_id === selectedImageId);
+  const sourcePath = img?.source_path || img?.sourcePath;
+  if (!sourcePath) {
+    setStatus("Preview: no source path for selected image.");
+    return;
+  }
+
+  // Build the current recipe from controls
+  const recipe = recipeFromControls(
+    (id) => parseFloat($(`ctrl-${id}`)?.value ?? "0"),
+    (id) => $(`ctrl-${id}`)?.value ?? "0",
+  );
+
+  // Supersede any in-flight request
+  const requestId = Symbol("preview");
+  activePreviewRequest = requestId;
+
+  try {
+    const result = await bridge.renderPipeline({
+      mode: "preview",
+      source: {
+        imageId: selectedImageId,
+        path: sourcePath,
+        width: 0,
+        height: 0,
+      },
+      recipe,
+      width: 0,
+      height: 0,
+      samples: [],
+    });
+
+    // Ignore stale results
+    if (activePreviewRequest !== requestId) return;
+
+    // Draw samples on canvas
+    const canvas = $("preview-canvas");
+    const empty = $("preview-empty");
+    if (!canvas) return;
+
+    const { width, height, samples } = result;
+    if (!width || !height || !samples || samples.length === 0) {
+      setStatus("Preview: pipeline returned no pixels.");
+      return;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.display = "block";
+    if (empty) empty.style.display = "none";
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const imageData = ctx.createImageData(width, height);
+    const pixelCount = width * height;
+    for (let i = 0; i < pixelCount; i++) {
+      const sIdx = i * 3;
+      const dIdx = i * 4;
+      // Linear float → 8-bit sRGB OETF (match Rust export encoding)
+      for (let ch = 0; ch < 3; ch++) {
+        const linear = (samples[sIdx + ch] ?? 0);
+        const srgb = linear <= 0.0031308
+          ? linear * 12.92
+          : 1.055 * Math.pow(linear, 1 / 2.4) - 0.055;
+        imageData.data[dIdx + ch] = Math.max(0, Math.min(255, Math.round(srgb * 255)));
+      }
+      imageData.data[dIdx + 3] = 255; // alpha
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    // Record provenance
+    const provEl = $("preview-provenance");
+    if (provEl) {
+      provEl.textContent = `${width}×${height} • ${result.recipeFingerprint?.slice(0, 12) ?? ""}…`;
+    }
+  } catch (error) {
+    if (activePreviewRequest === requestId) {
+      setStatus(`Preview render failed: ${error.message}`);
+    }
   }
 }
 
@@ -302,7 +484,7 @@ function wireControls() {
     input.addEventListener("input", () => {
       label.textContent = ctrl.format(parseFloat(input.value));
     });
-    input.addEventListener("change", () => saveCurrentRecipe());
+    input.addEventListener("change", () => { saveCurrentRecipe(); schedulePreviewRender(); });
   }
   // Wire rotate select
   const rot = $("ctrl-rotate");
@@ -346,7 +528,30 @@ function init() {
   }
 
   wireControls();
-  $("btn-import")?.addEventListener("click", () => setStatus("Import dialog (pending Tauri file picker)."));
+  $("btn-import")?.addEventListener("click", async () => {
+    if (!bridge.available) {
+      setStatus("Import requires a connected backend.");
+      return;
+    }
+    // For alpha: prompt for file path (production will use Tauri file dialog)
+    const input = prompt("Enter image file path(s), comma-separated:");
+    if (!input) return;
+    const paths = input.split(",").map((s) => s.trim()).filter(Boolean);
+    if (paths.length === 0) return;
+    try {
+      const result = await bridge.importImages(paths);
+      const n = result.imported?.length ?? 0;
+      const skipped = result.skipped?.length ?? 0;
+      setStatus(
+        n > 0
+          ? `Imported ${n} image(s)${skipped > 0 ? `, skipped ${skipped}` : ""}.`
+          : `Import failed: ${skipped} skipped.`,
+      );
+      await refreshLibrary();
+    } catch (error) {
+      setStatus(`Import failed: ${error.message}`);
+    }
+  });
   $("btn-save-preset")?.addEventListener("click", async () => {
     if (currentRecipe.operations.length === 0) {
       setStatus("No operations to save as preset.");
@@ -431,7 +636,7 @@ function init() {
         return;
       }
     }
-    const format = $("export-format")?.value || "jpeg";
+    const format = $("export-format")?.value || "png";
     const quality = parseInt($("export-quality")?.value ?? "92", 10);
     const job = queueExportJob(selectedImageId, format, quality);
     setStatus(`Queued ${format.toUpperCase()} export for ${selectedImageId}.`);
@@ -439,8 +644,50 @@ function init() {
     if (list) {
       const el = document.createElement("div");
       el.className = "job-item";
+      el.dataset.jobId = job.id;
       el.innerHTML = `<span>${job.id}: ${format.toUpperCase()}</span><span class="status--${job.status}">${job.status}</span>`;
       list.appendChild(el);
+    }
+
+    // Execute export through the pipeline when bridge is available
+    if (bridge.available) {
+      const img = libraryImages.find((i) => i.image_id === selectedImageId);
+      const sourcePath = img?.source_path || img?.sourcePath;
+      if (!sourcePath) {
+        job.status = "failed";
+        setStatus("Export failed: no source path for selected image.");
+        return;
+      }
+      // Derive output path and extension from source and format
+      const dotIdx = sourcePath.lastIndexOf(".");
+      const baseName = dotIdx > 0 ? sourcePath.slice(0, dotIdx) : sourcePath;
+      const ext = format === "tiff-16" || format === "tiff-8" ? ".tiff" : ".png";
+      const outputPath = `${baseName}-edited-${job.id}${ext}`;
+      try {
+        const result = await bridge.exportImage(
+          selectedImageId,
+          sourcePath,
+          currentRecipe,
+          outputPath,
+          format,
+        );
+        job.status = "done";
+        setStatus(
+          `Exported ${result.width}x${result.height} ${result.format.toUpperCase()} (${result.fileSizeBytes} bytes) → ${result.outputPath}`,
+        );
+      } catch (error) {
+        job.status = "failed";
+        setStatus(`Export failed: ${error.message}`);
+      }
+      // Update job item in UI
+      const jobEl = list?.querySelector(`[data-job-id="${job.id}"]`);
+      if (jobEl) {
+        const statusEl = jobEl.querySelector(`[class^="status--"]`);
+        if (statusEl) {
+          statusEl.className = `status--${job.status}`;
+          statusEl.textContent = job.status;
+        }
+      }
     }
   });
 }
