@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), warn(clippy::unwrap_used, clippy::expect_used))]
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::WebviewWindow;
@@ -1239,6 +1241,10 @@ fn is_leap(y: i64) -> bool {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Tauri application entry point.
+/// The final `.expect()` is an intentional abort: if the Tauri event loop
+/// cannot start, there is no UI to recover to and the process must exit.
+#[allow(clippy::expect_used)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())

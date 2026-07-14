@@ -222,14 +222,17 @@ fn validate_operation(operation: &Value, index: usize) -> Result<(), RecipeError
         ));
     }
 
-    if !matches!(object.get("params"), Some(Value::Object(_))) {
-        return Err(RecipeError::new(
-            RecipeErrorKind::InvalidParams,
-            format!("operation {index} params must be an object"),
-        ));
-    }
+    let params = match object.get("params") {
+        Some(value @ Value::Object(_)) => value,
+        _ => {
+            return Err(RecipeError::new(
+                RecipeErrorKind::InvalidParams,
+                format!("operation {index} params must be an object"),
+            ));
+        }
+    };
 
-    validate_operation_params(operation_type, object.get("params").unwrap(), index)?;
+    validate_operation_params(operation_type, params, index)?;
 
     Ok(())
 }
@@ -440,6 +443,11 @@ fn canonicalize(value: &Value) -> Value {
     }
 }
 
+/// Serializes a `serde_json::Value` to match Node's `JSON.stringify` output
+/// exactly (sorted keys, no whitespace). The `expect()` calls below are on
+/// truly infallible operations (serializing a `String`, a string object key,
+/// or converting a non-integer `Number` to f64) and are explicitly allowed.
+#[allow(clippy::expect_used)]
 fn stringify_like_json_stringify(value: &Value) -> String {
     match value {
         Value::Null => "null".to_string(),
@@ -471,6 +479,7 @@ fn stringify_like_json_stringify(value: &Value) -> String {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn stringify_number_like_json_stringify(number: &serde_json::Number) -> String {
     if let Some(unsigned) = number.as_u64() {
         return unsigned.to_string();
