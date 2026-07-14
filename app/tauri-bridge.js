@@ -124,5 +124,15 @@ export function createTauriBridge() {
     importImages(sourcePaths) {
       return call("import_images", { sourcePaths });
     },
+
+    /** Call viewport_proof_results Tauri command. */
+    callViewportProof() {
+      return call("viewport_proof_results");
+    },
+
+    /** Save the viewport proof report JSON to the verification directory. */
+    saveViewportProof(reportJson) {
+      return call("save_viewport_proof", { reportJson });
+    },
   };
 }

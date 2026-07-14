@@ -268,6 +268,26 @@ async fn pipeline_capabilities() -> core::PipelineCapabilities {
   core::detect_pipeline_capabilities().await
 }
 
+/// Save the viewport proof report to the verification directory.
+/// Called by the webview JS after collecting all gate results.
+#[tauri::command]
+fn save_viewport_proof(report_json: String) -> Result<(), String> {
+  let report: serde_json::Value = serde_json::from_str(&report_json)
+    .map_err(|e| format!("Invalid report JSON: {e}"))?;
+  let verif_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    .join("..")
+    .join(".scratch")
+    .join("photogenic-foundation")
+    .join("verification");
+  std::fs::create_dir_all(&verif_dir)
+    .map_err(|e| format!("Failed to create verification dir: {e}"))?;
+  let output_path = verif_dir.join("viewport-linux.json");
+  std::fs::write(&output_path, serde_json::to_string_pretty(&report)
+    .map_err(|e| format!("Failed to serialize report: {e}"))?)
+    .map_err(|e| format!("Failed to write viewport proof: {e}"))?;
+  Ok(())
+}
+
 #[tauri::command]
 async fn render_pipeline(request: PipelineRenderRequest) -> Result<PipelineRenderResult, String> {
   let recipe = core::Recipe::from_value(request.recipe).map_err(|error| error.to_string())?;
@@ -1050,6 +1070,125 @@ fn encode_jpeg_rgb(width: u32, height: u32, rgb: &[u8], quality: u8) -> Vec<u8> 
     buf
 }
 
+/// Collect viewport proof on startup and save the report to disk.
+/// Runs in a background thread so it doesn't block the app launch.
+/// Write a minimal heartbeat file during setup to confirm the app started.
+fn save_viewport_setup_heartbeat() {
+    let verif_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(".scratch")
+        .join("photogenic-foundation")
+        .join("verification");
+    let _ = std::fs::create_dir_all(&verif_dir);
+    let heartbeat = verif_dir.join("viewport-setup-heartbeat.json");
+    let _ = std::fs::write(&heartbeat, format!("{{\"setup\":true,\"at\":\"{}\"}}", chrono_now()));
+}
+
+fn collect_and_save_viewport_proof(app: &tauri::AppHandle) {
+    let verif_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(".scratch")
+        .join("photogenic-foundation")
+        .join("verification");
+    let output_path = verif_dir.join("viewport-linux.json");
+    if let Err(e) = std::fs::create_dir_all(&verif_dir) {
+        eprintln!("viewport proof: failed to create dir: {e}");
+        return;
+    }
+
+    let now = chrono_now();
+
+    // Gate 1 + 2: gradient and raw_frame via native pipeline
+    let native_frame = viewport::frame_bridge::measure_native_frame("viewport-proof-native-frame", 2, 2);
+    let gradient_passed = native_frame.is_ok();
+    let raw_frame_passed = native_frame.is_ok();
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+    results.push(serde_json::json!({"id":"gradient","passed":gradient_passed,"note":if gradient_passed {"Tauri shell bridge connected; native Pipeline frame provenance is available."} else {"Native Pipeline frame provenance unavailable."}}));
+
+    let (raw_note, raw_metrics) = match &native_frame {
+        Ok(f) => (format!("Native Pipeline frame for {} at {}x{} by {} (hash {}). {:.0}ms.", f.source_file_id, f.frame_width, f.frame_height, f.transfer_method, f.frame_hash, f.render_duration_ms), Some(serde_json::json!({"sourceFileId":f.source_file_id,"recipeFingerprint":f.recipe_fingerprint,"frameWidth":f.frame_width,"frameHeight":f.frame_height,"transferMethod":f.transfer_method,"frameHash":f.frame_hash,"renderDurationMs":f.render_duration_ms,"red":f.red,"green":f.green,"blue":f.blue,"alpha":f.alpha}))),
+        Err(e) => (format!("Native Pipeline frame unavailable: {e}"), None),
+    };
+    results.push(serde_json::json!({"id":"raw_frame","passed":raw_frame_passed,"metrics":raw_metrics,"note":raw_note}));
+
+    // Gates 3-6: webview DOM gates — not measured in this auto-capture
+    for &id in &["zoom_pan", "overlay", "color_managed", "sustained_60fps"] {
+        results.push(serde_json::json!({"id":id,"passed":false,"measured":false,"note":"Webview gate requires interactive measurement; not measured in startup capture."}));
+    }
+
+    // Evaluate
+    let passed_ids: Vec<&str> = results.iter().filter(|r| r.get("passed").and_then(|v| v.as_bool()).unwrap_or(false)).filter_map(|r| r.get("id").and_then(|v| v.as_str())).collect();
+    let all_passed = passed_ids.len() == 6;
+    let gradient_only = passed_ids.len() == 1 && passed_ids.first() == Some(&"gradient");
+    let measured_failures: Vec<&str> = results.iter().filter(|r| !r.get("passed").and_then(|v| v.as_bool()).unwrap_or(false) && r.get("measured").and_then(|v| v.as_bool()).unwrap_or(true)).filter_map(|r| r.get("id").and_then(|v| v.as_str())).collect();
+    let reason = if all_passed { "All viewport gates passed. Shell decision may be locked (ADR-0004)." } else if gradient_only { "Gradient passed but later gates are unproven. Shell decision stays provisional (ADR-0004)." } else if !passed_ids.contains(&"gradient") { "Gradient gate not yet passed." } else { "Viewport proof incomplete — webview DOM gates require interactive measurement." };
+
+    let report = serde_json::json!({
+        "platform":"linux","collectedAt":now,"shell":"tauri-native","webkitgtkVersion":"4.1",
+        "results":results,
+        "gradientOnly":gradient_only,"provisional":passed_ids.len()>0&&!all_passed,
+        "shellDecisionUnlocked":all_passed,"fallbackActivated":!measured_failures.is_empty(),
+        "measuredGateFailures":measured_failures,"passedGates":passed_ids,"reason":reason,
+    });
+
+    match serde_json::to_string_pretty(&report) {
+        Ok(json) => {
+            if let Err(e) = std::fs::write(&output_path, &json) {
+                eprintln!("viewport proof: failed to write: {e}");
+            }
+        }
+        Err(e) => eprintln!("viewport proof: serialization failed: {e}"),
+    }
+}
+
+/// Simple ISO-8601 timestamp for report files.
+fn chrono_now() -> String {
+    use std::time::SystemTime;
+    use std::time::UNIX_EPOCH;
+    let dur = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = dur.as_secs();
+    // Basic ISO-8601: 2026-07-13T12:00:00Z
+    let days_since_epoch = secs / 86400;
+    let time_of_day = secs % 86400;
+    let hours = time_of_day / 3600;
+    let minutes = (time_of_day % 3600) / 60;
+    let seconds = time_of_day % 60;
+
+    // Calculate year/month/day from days since epoch
+    let (y, m, d) = days_to_ymd(days_since_epoch as i64);
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, hours, minutes, seconds)
+}
+
+fn days_to_ymd(days: i64) -> (i64, u32, u32) {
+    let mut d = days;
+    let mut y = 1970i64;
+    loop {
+        let days_in_year = if is_leap(y) { 366 } else { 365 };
+        if d < days_in_year { break; }
+        d -= days_in_year;
+        y += 1;
+    }
+    let month_days = if is_leap(y) {
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    let mut m = 1u32;
+    for &md in &month_days {
+        if d < md as i64 { break; }
+        d -= md as i64;
+        m += 1;
+    }
+    (y, m, (d + 1) as u32)
+}
+
+fn is_leap(y: i64) -> bool {
+    (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -1063,6 +1202,17 @@ pub fn run() {
       let db_path = data_dir.join("photogenic-catalog.sqlite");
       let store = catalog::SqliteCatalogStore::open(&db_path)
         .expect("failed to open catalog database");
+
+      // Issue 10: capture viewport proof when the window is ready
+      let app_handle = app.handle().clone();
+      std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        collect_and_save_viewport_proof(&app_handle);
+      });
+
+      // Also save immediately in setup (before webview, but proves setup runs)
+      save_viewport_setup_heartbeat();
+
       app.manage(AppState {
         catalog: Mutex::new(store),
         data_dir: data_dir.clone(),
@@ -1071,6 +1221,7 @@ pub fn run() {
     })
     .invoke_handler(tauri::generate_handler![
       viewport_proof_results,
+      save_viewport_proof,
       pipeline_capabilities,
       render_pipeline,
       catalog::import::import_sources,

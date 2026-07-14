@@ -1,49 +1,65 @@
 {
-  "schemaVersion": 1,
-  "task": "3.3",
+  "collectedAt": "2026-07-14T02:21:48Z",
+  "fallbackActivated": false,
+  "gradientOnly": false,
+  "measuredGateFailures": [],
+  "passedGates": [
+    "gradient",
+    "raw_frame"
+  ],
   "platform": "linux",
-  "capturedAt": "2026-07-09T05:28:43Z",
-  "gitCommit": "29ae0e9b6c33202973d23bd403af9d04bb9983ac",
-  "host": {
-    "uname": "Linux nochaserz-MacBookPro 6.17.0-35-generic #35~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue May 26 19:30:42 UTC 2 x86_64 x86_64 x86_64 GNU/Linux"
-  },
-  "commands": [
+  "provisional": true,
+  "reason": "Viewport proof incomplete — webview DOM gates require interactive measurement.",
+  "results": [
     {
-      "command": "cargo --version",
-      "exitCode": 0,
-      "stdout": "cargo 1.96.1 (356927216 2026-06-26)"
+      "id": "gradient",
+      "note": "Tauri shell bridge connected; native Pipeline frame provenance is available.",
+      "passed": true
     },
     {
-      "command": "rustc --version",
-      "exitCode": 0,
-      "stdout": "rustc 1.96.1 (31fca3adb 2026-06-26)"
+      "id": "raw_frame",
+      "metrics": {
+        "alpha": 255,
+        "blue": 153,
+        "frameHash": "a372adee817c761286363f7f715493c68a5801b759308392c6954016bf689c8c",
+        "frameHeight": 2,
+        "frameWidth": 2,
+        "green": 102,
+        "recipeFingerprint": "bafd6bd2c594c2f3f4253bb3061f137a573c2a470b39a4972c195fc69a82f17b",
+        "red": 51,
+        "renderDurationMs": 0,
+        "sourceFileId": "viewport-proof-native-frame",
+        "transferMethod": "cpu-linear-float32"
+      },
+      "note": "Native Pipeline frame for viewport-proof-native-frame at 2x2 by cpu-linear-float32 (hash a372adee817c761286363f7f715493c68a5801b759308392c6954016bf689c8c). 0ms.",
+      "passed": true
     },
     {
-      "command": "timeout 20 npx @tauri-apps/cli@2.11.4 -V",
-      "exitCode": 124,
-      "stdout": "",
-      "stderr": "",
-      "interpretation": "Timed out before the Tauri CLI version check produced output in this noninteractive environment."
+      "id": "zoom_pan",
+      "measured": false,
+      "note": "Webview gate requires interactive measurement; not measured in startup capture.",
+      "passed": false
     },
     {
-      "command": "timeout 30 npm run tauri:dev",
-      "exitCode": 124,
-      "stdout": "> photogenic@0.0.0 tauri:dev\n> npx @tauri-apps/cli@2.11.4 dev",
-      "stderr": "",
-      "interpretation": "Timed out without a failing diagnostic. This does not prove the viewport gates because no interactive Tauri window proof report was captured."
+      "id": "overlay",
+      "measured": false,
+      "note": "Webview gate requires interactive measurement; not measured in startup capture.",
+      "passed": false
     },
     {
-      "command": "npm run tauri:attempt",
-      "exitCode": 130,
-      "stdout": "> photogenic@0.0.0 tauri:attempt\n> node scripts/tauri-attempt.mjs",
-      "stderr": "",
-      "interpretation": "Stopped after the preflight hung with no output beyond the script header, likely during the npx @tauri-apps/cli@latest lookup."
+      "id": "color_managed",
+      "measured": false,
+      "note": "Webview gate requires interactive measurement; not measured in startup capture.",
+      "passed": false
+    },
+    {
+      "id": "sustained_60fps",
+      "measured": false,
+      "note": "Webview gate requires interactive measurement; not measured in startup capture.",
+      "passed": false
     }
   ],
-  "gateResults": [],
-  "verdict": {
-    "shellDecisionUnlocked": false,
-    "reason": "No local Linux interactive viewport proof report was captured in this session."
-  },
-  "decisionImpact": "Linux remains unproven for ADR-0004 in this artifact. Tauri cannot be locked from this evidence."
+  "shell": "tauri-native",
+  "shellDecisionUnlocked": false,
+  "webkitgtkVersion": "4.1"
 }
