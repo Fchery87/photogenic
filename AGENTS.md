@@ -6,7 +6,7 @@ Project guidance for AI coding agents working in this repo.
 
 ### Issue tracker
 
-Issues and PRDs are tracked as **local markdown** files under `.scratch/<feature>/` (no git remote configured; external PRs are not a triage surface). See `docs/agents/issue-tracker.md`.
+Issues and PRDs are tracked as **local markdown** files under `.scratch/<feature>/` (the local-markdown tracker is authoritative by choice — it branches and reviews with the code). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

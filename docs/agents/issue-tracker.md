@@ -2,8 +2,11 @@
 
 Issues and PRDs for this repo live as markdown files in `.scratch/`.
 
-> Chosen because this repo currently has **no git remote**. Switch to GitHub/GitLab by
-> replacing this file's contents with the corresponding seed and updating `AGENTS.md`.
+> A git remote now exists (`https://github.com/Fchery87/photogenic.git`) and GitHub
+> Actions CI is active. The local-markdown tracker remains the **authoritative** issue
+> tracker by choice (not just necessity) — issues, PRDs, and verification artifacts stay
+> in `.scratch/` so they branch and review with the code. To migrate to GitHub Issues,
+> replace this file's contents with the corresponding seed and update `AGENTS.md`.
 
 ## Conventions
 

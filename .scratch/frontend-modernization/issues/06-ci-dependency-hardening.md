@@ -41,3 +41,15 @@ add Dependabot, an auto-update plugin scaffold, and opt-in crash/error telemetry
 - `cargo test --manifest-path src-tauri/Cargo.toml`
 - `npm test`
 - (CI verification requires git remote from Task 0.3)
+
+## Comments
+
+### CI baseline run (2026-07-14, run 29312518018)
+First-ever CI run after connecting the remote. Result: **failures on all 3 OS** (ubuntu, macos, windows).
+
+**Root cause:** `node:sqlite` is not available in Node.js 20 (CI uses `node-version: '20'`).
+`node:sqlite` was introduced experimentally in Node 22. Two tests fail:
+- `test/sqlite-catalog-backend.test.js` — entire file fails with `ERR_UNKNOWN_BUILTIN_MODULE: No such built-in module: node:sqlite`
+- `smoke script runs and produces a valid report with all steps passing` — smoke script fails for the same reason
+
+**Action needed before Task 1.6 can gate on `npm test`:** bump `node-version` in `.github/workflows/ci.yml` to `22` (or use `node-version-file` pointing at `.nvmrc`). This is a pre-existing issue, not introduced by this plan.
