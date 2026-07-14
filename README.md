@@ -43,6 +43,14 @@ Cross-platform, AI-assisted photo editor (see `ARCHITECTURE.md` and `docs/adr/`)
 - Ordered local issue breakdown in `.scratch/photogenic-foundation/issues/`
 - Tauri workflow prep via `npm run tauri:attempt`, `npm run tauri:dev`, and `npm run tauri:build`
 
+## Frontend modernization (in progress)
+Per [ADR-0011](docs/adr/0011-frontend-react-typescript-correction.md), the frontend
+is being migrated from the current vanilla-JS `app/main.js` shell to typed React +
+TypeScript components. The `app/main.js` imperative shell was an unratified deviation
+from the locked architecture; it will be fully replaced via a strangler-fig migration
+(one panel at a time). See
+`docs/plans/2026-07-14-frontend-react-typescript-modernization.md` for the full plan.
+
 ## Tauri shell next step
 On a Cargo-capable machine, restore or regenerate the real `src-tauri/` scaffold and commit the source/config subset:
 - `src-tauri/.gitignore`

@@ -17,6 +17,12 @@
 > | [0007](docs/adr/0007-edit-recipe-persistence-catalog-plus-sidecar.md) | Edit Recipe: catalog is source of truth + optional sidecars |
 > | [0008](docs/adr/0008-scene-referred-linear-float-working-space.md) | Pipeline works in scene-referred linear 32-bit float, wide gamut |
 > | [0009](docs/adr/0009-cloud-generative-proxy-and-ephemeral-privacy.md) | Cloud generative proxies a 3rd-party API with an ephemeral privacy contract |
+> | [0011](docs/adr/0011-frontend-react-typescript-correction.md) | Frontend is React + TypeScript (preferred) or React + JavaScript (fallback); vanilla JS is not acceptable |
+
+> **ADR-0011 note:** The React + TypeScript decision above (line 44/86) is
+> reaffirmed. The `app/main.js` imperative shell shipped in Issue 12 was an
+> unratified deviation; the frontend is being migrated to typed React components
+> per ADR-0011.
 
 ---
 
