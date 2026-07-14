@@ -1,8 +1,0 @@
-{
-  "identifier": "default",
-  "description": "Default capability granting core invoke access to all windows",
-  "windows": ["main"],
-  "permissions": [
-    "core:default"
-  ]
-}

@@ -1,8 +1,8 @@
 {
   "platform": "linux",
   "arch": "x64",
-  "startedAt": "2026-07-14T03:31:28.890Z",
-  "finishedAt": "2026-07-14T03:31:34.707Z",
+  "startedAt": "2026-07-14T04:38:52.319Z",
+  "finishedAt": "2026-07-14T04:38:58.036Z",
   "overall": "pass",
   "steps": [
     {
@@ -40,9 +40,9 @@
       "detail": {
         "imported": 3,
         "imageIds": [
-          "c0592a487f05c8ae",
-          "b8d5bbb9ac721cb0",
-          "c1316f0daa7dbfe5"
+          "d81cf6aa71bcf9d4",
+          "c5b46504372568bf",
+          "e73995af146cd458"
         ]
       }
     },
@@ -50,15 +50,15 @@
       "name": "cull",
       "status": "pass",
       "detail": {
-        "rated": "c0592a487f05c8ae",
-        "rejected": "c1316f0daa7dbfe5"
+        "rated": "d81cf6aa71bcf9d4",
+        "rejected": "e73995af146cd458"
       }
     },
     {
       "name": "develop",
       "status": "pass",
       "detail": {
-        "imageId": "c0592a487f05c8ae",
+        "imageId": "d81cf6aa71bcf9d4",
         "revision": 1
       }
     },
@@ -67,7 +67,7 @@
       "status": "pass",
       "detail": {
         "presetId": "preset-warm-sunset",
-        "appliedTo": "b8d5bbb9ac721cb0"
+        "appliedTo": "c5b46504372568bf"
       }
     },
     {
@@ -75,8 +75,8 @@
       "status": "pass",
       "detail": {
         "syncedTo": [
-          "b8d5bbb9ac721cb0",
-          "c1316f0daa7dbfe5"
+          "c5b46504372568bf",
+          "e73995af146cd458"
         ],
         "operationTypes": [
           "exposure"

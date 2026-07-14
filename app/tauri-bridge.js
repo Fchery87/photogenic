@@ -9,9 +9,18 @@
 
 function resolveInvoke() {
   const tauri = typeof globalThis !== "undefined" ? globalThis.__TAURI__ : undefined;
-  if (!tauri) return undefined;
+  if (!tauri) {
+    // __TAURI__ comes from @tauri-apps/api (npm package, not required).
+    // Fall back to __TAURI_INTERNALS__ which is injected by the Tauri runtime.
+    const internals = typeof globalThis !== "undefined" ? globalThis.__TAURI_INTERNALS__ : undefined;
+    if (internals && typeof internals.invoke === "function") return internals.invoke;
+    return undefined;
+  }
   if (tauri.core && typeof tauri.core.invoke === "function") return tauri.core.invoke;
   if (typeof tauri.invoke === "function") return tauri.invoke;
+  // Also check internals as fallback
+  const internals = typeof globalThis !== "undefined" ? globalThis.__TAURI_INTERNALS__ : undefined;
+  if (internals && typeof internals.invoke === "function") return internals.invoke;
   return undefined;
 }
 
