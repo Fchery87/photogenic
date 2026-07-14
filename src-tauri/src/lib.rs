@@ -868,7 +868,7 @@ fn export_image(request: ExportImageRequest) -> Result<ExportImageResult, String
   let pixel_count = (width as usize) * (height as usize);
   // Determine output format early so we can skip unnecessary conversions
   let format_name = match request.output_format.as_deref().unwrap_or("png") {
-    "tiff-16" | "tiff-8" | "tiff" | "jpeg" | "jpg" => request.output_format.as_deref().unwrap(),
+    matched @ ("tiff-16" | "tiff-8" | "tiff" | "jpeg" | "jpg") => matched,
     _ => "png", // default / unknown formats fall back to PNG
   };
   // For 16-bit TIFF, skip the 8-bit conversion (computed separately below)
@@ -1250,7 +1250,7 @@ pub fn run() {
       std::fs::create_dir_all(&data_dir).ok();
       let db_path = data_dir.join("photogenic-catalog.sqlite");
       let store = catalog::SqliteCatalogStore::open(&db_path)
-        .expect("failed to open catalog database");
+        .map_err(|e| format!("failed to open catalog database at {}: {}", db_path.display(), e))?;
 
       // Issue 10: capture viewport proof when the window is ready
       let app_handle = app.handle().clone();
@@ -1291,4 +1291,40 @@ pub fn run() {
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod panic_path_tests {
+  use super::*;
+
+  #[test]
+  fn sqlite_store_open_returns_err_for_unopenable_path() {
+    let bad_path = std::path::Path::new("/nonexistent/dir/that/cannot/be/created/catalog.sqlite");
+    let result = catalog::SqliteCatalogStore::open(bad_path);
+    assert!(result.is_err(), "opening at an unopenable path should return Err, not panic");
+  }
+
+  #[test]
+  fn sqlite_store_open_returns_err_for_read_only_directory() {
+    let dir = std::env::temp_dir().join(format!("photogenic-readonly-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).ok();
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::PermissionsExt;
+      let mut perms = std::fs::metadata(&dir).unwrap().permissions();
+      perms.set_mode(0o444);
+      std::fs::set_permissions(&dir, perms).ok();
+    }
+    let db_path = dir.join("catalog.sqlite");
+    let result = catalog::SqliteCatalogStore::open(&db_path);
+    #[cfg(unix)]
+    {
+      use std::os::unix::fs::PermissionsExt;
+      let mut perms = std::fs::metadata(&dir).unwrap().permissions();
+      perms.set_mode(0o755);
+      std::fs::set_permissions(&dir, perms).ok();
+    }
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(result.is_err(), "opening in a read-only directory should return Err, not panic");
+  }
 }
