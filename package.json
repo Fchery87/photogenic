@@ -6,7 +6,7 @@
   "description": "Phase 0 scaffold + foundation seams for the Photogenic cross-platform AI photo editor.",
   "scripts": {
     "test": "node --test test/*.test.js && npm run test:components",
-    "test:components": "node --test --import ./test/setup/dom.js test/components/*.test.js",
+    "test:components": "node --test --import tsx --import ./test/setup/dom.js test/components/*.test.js",
     "build": "vite build",
     "build:legacy": "node scripts/build.mjs",
     "dev": "vite",
@@ -27,6 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "happy-dom": "^20.10.6",
+    "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.4"
   },

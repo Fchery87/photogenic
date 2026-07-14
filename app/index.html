@@ -8,14 +8,8 @@
   </head>
   <body>
     <div id="app">
-      <!-- Top bar -->
-      <header class="top-bar">
-        <div class="brand">Photogenic</div>
-        <div class="badges">
-          <span id="pipeline-badge" class="badge badge--unknown">Pipeline: …</span>
-          <span id="license-badge" class="badge badge--unknown">License: …</span>
-        </div>
-      </header>
+      <!-- React mount point for TopBar (Task 3.1 — strangler-fig migration) -->
+      <div id="react-root"></div>
 
       <div class="layout">
         <!-- Library sidebar -->
@@ -193,6 +187,7 @@
       </footer>
     </div>
 
+    <script type="module" src="/src/main.tsx"></script>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

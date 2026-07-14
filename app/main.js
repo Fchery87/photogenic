@@ -210,12 +210,7 @@ function setStatus(text) {
   if (el) el.textContent = text;
 }
 
-function setBadge(id, text, cls) {
-  const el = $(id);
-  if (!el) return;
-  el.textContent = text;
-  el.className = `badge ${cls}`;
-}
+// setBadge removed — top-bar badges now owned by React TopBar component
 
 // -- Recipe <-> UI sync -----------------------------------------------------
 
@@ -636,27 +631,7 @@ export function queueExportJob(imageId, format, quality) {
   return job;
 }
 
-// -- Pipeline capabilities ---------------------------------------------------
-
-async function checkPipeline() {
-  if (!bridge.available) {
-    setBadge("pipeline-badge", "Pipeline: offline", "badge--error");
-    return;
-  }
-  try {
-    const caps = await bridge.pipelineCapabilities();
-    const mode = caps?.mode || "unknown";
-    if (mode === "gpu") {
-      setBadge("pipeline-badge", "GPU", "badge--ok");
-    } else if (mode === "cpu") {
-      setBadge("pipeline-badge", "CPU", "badge--warn");
-    } else {
-      setBadge("pipeline-badge", `Pipeline: ${mode}`, "badge--unknown");
-    }
-  } catch {
-    setBadge("pipeline-badge", "Pipeline: error", "badge--error");
-  }
-}
+// -- Pipeline capabilities (now owned by React TopBar) ----------------------
 
 // -- Wire up event listeners -------------------------------------------------
 
@@ -689,11 +664,8 @@ function wireControls() {
 
 function init() {
   if (!bridge.available) {
-    setBadge("pipeline-badge", "Backend: disconnected", "badge--error");
-    setBadge("license-badge", "License: offline", "badge--error");
     setStatus("Tauri backend not available — running in disconnected mode.");
   } else {
-    setBadge("license-badge", "Checking…", "badge--unknown");
 
     // Issue 10: auto-collect viewport proof on startup (deferred to ensure DOM + bridge are ready)
     setTimeout(async () => {
@@ -717,7 +689,6 @@ function init() {
       }
     }, 2000);
 
-    checkPipeline();
     refreshLibrary();
     // Restore last workspace state (criterion 3: reopen restores selected image)
     (async () => {
