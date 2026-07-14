@@ -1314,6 +1314,7 @@ mod panic_path_tests {
   }
 
   #[test]
+  #[cfg(unix)]
   fn sqlite_store_open_returns_err_for_read_only_directory() {
     let dir = std::env::temp_dir().join(format!("photogenic-readonly-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).ok();
