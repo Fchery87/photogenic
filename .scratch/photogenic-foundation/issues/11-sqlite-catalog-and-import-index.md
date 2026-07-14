@@ -1,6 +1,6 @@
 # Issue 11 — SQLite Catalog and import index
 
-Status: ready-for-agent
+Status: done
 
 ## Progress (SQLite catalog wiring, 2026-07-12)
 Closed the JS-side SQLite catalog wiring gap:
@@ -11,6 +11,13 @@ Closed the JS-side SQLite catalog wiring gap:
 Verified: `npm test` 412/412 (+13 SQLite backend tests), `cargo test` 73/73 (Rust store unchanged), `npm run build` ok.
 
 Still open: the production path (Tauri runtime → Rust rusqlite) is wired at the Rust command level (`catalog::import::import_sources` is registered) but the JS adapter currently targets the node:sqlite test path; wiring the JS `catalogBackend` to call Tauri invoke commands (like the native pipeline adapter) is future work pending Issue 12 (app UI bootstrap).
+
+## Progress (Tauri catalog backend wiring, 2026-07-13)
+Closed the remaining gap between the JS `catalogBackend` abstraction and the Tauri runtime:
+- Created `src/catalog/tauri-catalog-backend.js`: implements the full `catalogBackend` interface (recipe, library, preset, workspace) using Tauri invoke commands backed by the Rust SQLite store.
+- Each backend provides `loadStore()` and `saveStore()` methods that delegate to the corresponding Tauri commands (`list_library`, `get_recipe`, `save_recipe`, `list_presets`, `save_preset`, etc.).
+- The Tauri catalog backend can be plugged into all four store factories (`createCatalogRecipeStore`, `createLibraryStore`, `createPresetStore`, `createWorkspaceSessionStore`) for durable SQLite persistence through the Rust layer.
+Verified: `npm test` 454/454, `cargo test` 107/107, `npm run build` ok, `npm run smoke` 10/10.
 
 ## Goal
 Move Catalog persistence and import indexing to durable SQLite storage while preserving the existing workflow seams for recipes, library state, presets, sidecars, and reopen state.

@@ -108,14 +108,15 @@ export function createTauriBridge() {
       return call("list_culling");
     },
 
-    /** Export: decode → pipeline → encode (PNG/TIFF) → write file. */
-    exportImage(imageId, sourcePath, recipe, outputPath, outputFormat) {
+    /** Export: decode → pipeline → encode (PNG/JPEG/TIFF) → write file. */
+    exportImage(imageId, sourcePath, recipe, outputPath, outputFormat, quality) {
       return call("export_image", {
         imageId,
         sourcePath,
         recipe,
         outputPath,
         outputFormat: outputFormat || undefined,
+        quality: quality !== undefined ? quality : undefined,
       });
     },
 

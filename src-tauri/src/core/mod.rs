@@ -7,6 +7,7 @@ pub mod gpu_pipeline;
 pub mod image_buffer;
 pub mod jpeg_decoder;
 pub mod pipeline;
+pub mod raw_decoder;
 pub mod recipe;
 pub mod source;
 pub mod tiff_encoder;

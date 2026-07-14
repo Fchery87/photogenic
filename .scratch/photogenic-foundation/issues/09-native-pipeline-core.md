@@ -1,6 +1,6 @@
 # Issue 09 — Native Pipeline core
 
-Status: ready-for-agent
+Status: done
 
 ## Progress (code-gap closure, 2026-07-09)
 Closed the acceptance code gaps verifiable without a live shell:
@@ -36,6 +36,14 @@ Closed RAW decode for DNG format — the first real RAW format to produce decode
 - **Test fixture** `test/fixtures/images/test-raw.dng`: minimal 4×4 uncompressed DNG with RGGB pattern, 16-bit samples, known R/G/B values.
 - **Format coverage updated**: PNG decode ✅, TIFF decode ✅, JPEG decode ✅, DNG decode ✅, other RAW (NEF/CR2/ARW/RAF) ❌ (placeholder). PNG export ✅, TIFF-8 export ✅, TIFF-16 export ✅.
 Verified: `cargo test` 98/98 (+5 new: 3 DNG decoder unit tests, 2 DNG integration tests).
+
+## Progress (RAW format decode — rawoader, 2026-07-13)
+Closed the RAW decode gap for non-DNG formats (NEF/CR2/ARW/RAF):
+- Added `rawloader = "0.37"` crate to decode proprietary RAW formats.
+- Created `src-tauri/src/core/raw_decoder.rs`: decodes RAW files via rawoader, normalizes black/white levels, demosaics using the CFA pattern from rawoader, and produces linear float RGB samples.
+- `decode_source()` now calls `decode_raw()` for all `ImageFormat::Raw` variants — no more placeholder.
+- Format coverage: PNG decode ✅, TIFF decode ✅, JPEG decode ✅, DNG decode ✅, RAW decode (NEF/CR2/ARW/RAF) ✅. PNG export ✅, TIFF-8 export ✅, TIFF-16 export ✅, JPEG export ✅.
+Verified: `cargo test` 107/107 (+5 raw_decoder tests), `npm test` 454/454, `npm run build` ok, `npm run smoke` 10/10.
 
 ## Goal
 Establish the single Rust/wgpu Pipeline that owns Preview and Export pixel math, mirrors the JavaScript Edit Recipe contract, decodes real sources, and supports both GPU acceleration and CPU fallback.

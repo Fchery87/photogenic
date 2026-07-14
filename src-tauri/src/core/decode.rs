@@ -124,11 +124,7 @@ impl DecodeAdapter {
             ImageFormat::Tiff => Self::decode_tiff(&file_bytes)?,
             ImageFormat::Jpeg => Self::decode_jpeg(&file_bytes)?,
             ImageFormat::Dng => Self::decode_dng(&file_bytes)?,
-            // RAW formats (CR2, NEF, ARW, RAF) require a dedicated RAW decoder
-            // (rawloader or libraw) — not yet integrated. DNG is decoded above.
-            ImageFormat::Raw => {
-                DecodedImageBuffer::placeholder_linear(1, 1)
-            }
+            ImageFormat::Raw => Self::decode_raw(&file_bytes)?,
         };
 
         Ok(DecodedSource {
@@ -368,6 +364,16 @@ impl DecodeAdapter {
             )
         })
     }
+
+    /// Decode non-DNG RAW formats (CR2, NEF, ARW, RAF) via the `rawloader` crate.
+    fn decode_raw(file_bytes: &[u8]) -> Result<DecodedImageBuffer, DecodeError> {
+        crate::core::raw_decoder::decode_raw(file_bytes).map_err(|error| {
+            DecodeError::new(
+                DecodeErrorKind::ReadFailed,
+                format!("RAW decode failed: {error}"),
+            )
+        })
+    }
 }
 
 /// Read a big-endian or little-endian u16 from a byte slice.
@@ -434,14 +440,38 @@ mod tests {
     }
 
     #[test]
-    fn decode_placeholder_raw_fixture_to_linear_descriptor() {
+    fn decode_raw_placeholder_fixture_returns_error_for_invalid_raw() {
         let adapter = DecodeAdapter::new();
-        let decoded = adapter.decode_source(fixture_path("minimal.nef")).unwrap();
+        let result = adapter.decode_source(fixture_path("minimal.nef"));
 
-        assert_eq!(decoded.format(), ImageFormat::Raw);
-        assert_eq!(decoded.buffer().storage(), PixelStorage::PlaceholderLinear);
-        assert!(decoded.buffer().width() > 0);
-        assert!(decoded.buffer().height() > 0);
+        assert!(result.is_err(), "invalid RAW should fail decode, not crash");
+        let error = result.unwrap_err();
+        assert_eq!(error.kind(), DecodeErrorKind::ReadFailed);
+    }
+
+    #[test]
+    fn classify_raw_extensions() {
+        let adapter = DecodeAdapter::new();
+        assert_eq!(
+            adapter.classify_source("photo.nef").unwrap(),
+            ImageFormat::Raw
+        );
+        assert_eq!(
+            adapter.classify_source("photo.cr2").unwrap(),
+            ImageFormat::Raw
+        );
+        assert_eq!(
+            adapter.classify_source("photo.arw").unwrap(),
+            ImageFormat::Raw
+        );
+        assert_eq!(
+            adapter.classify_source("photo.raf").unwrap(),
+            ImageFormat::Raw
+        );
+        assert_eq!(
+            adapter.classify_source("photo.cr3").unwrap(),
+            ImageFormat::Raw
+        );
     }
 
     #[test]

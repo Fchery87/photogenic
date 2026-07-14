@@ -1,6 +1,6 @@
 # Issue 14 — Offline License activation
 
-Status: ready-for-agent
+Status: done
 
 ## Progress (offline license activation, 2026-07-12)
 Closed all six acceptance criteria:
@@ -20,6 +20,15 @@ All six acceptance criteria verified:
 6. ✅ Export controls explain state without blocking library workflows
 
 Note: the application's public key is not yet embedded in the Tauri config — that wiring awaits Issue 12 (app UI bootstrap). The activation API is complete and tested independently.
+
+## Progress (Ed25519 signature verification in Rust + public key embedding, 2026-07-13)
+Closed the Rust-side license verification gap:
+- Added `ed25519-compact = "2"` and `base64 = "0.22"` crates for Ed25519 signature verification.
+- Created `src-tauri/src/licensing/` module with `verification.rs`: implements canonical JSON serialization (sorted keys, excluding the `signature` field), Ed25519 signature verification against an embedded public key, and proper error reporting for invalid/missing/tampered signatures.
+- `check_license` Tauri command now performs real Ed25519 signature verification instead of merely checking for the presence of a `signature` field.
+- Public key embedded in Rust as a compile-time constant (`e548f635...`) and added to `tauri.conf.json` under `plugins.license.publicKey`.
+- Canonical JSON message computation matches the JS-side `canonicalJson()` function for signature interoperability.
+Verified: `cargo test` 107/107 (+4 licensing tests: canonical JSON, hex key validation, signature exclusion), `npm test` 454/454, `npm run smoke` 10/10.
 
 ## Goal
 Add signed offline License validation and internal-alpha activation UI while keeping local editing/export entitlements separate from future cloud Credits.

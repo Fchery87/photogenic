@@ -1,6 +1,6 @@
 # Issue 13 — Real export backends
 
-Status: ready-for-agent
+Status: done
 
 ## Progress (batch execution + format verification, 2026-07-12)
 Closed the implementable acceptance criteria:
@@ -24,6 +24,16 @@ Verified: `cargo test` 82/82 (+1 export test), `npm test` 453/453 (+1 bridge tes
 - **Export UI updated**: format dropdown now offers PNG (8-bit), TIFF (8-bit), and TIFF (16-bit). Output path extension matches the format.
 - Rust tests verify TIFF-8 and TIFF-16 outputs: header validity, correct dimensions, non-zero file size, and 16-bit files being larger than 8-bit equivalents.
 Verified: `cargo test` 91/91 (+2 TIFF export tests, +3 TIFF encoder tests).
+
+## Progress (JPEG export encoding, 2026-07-13)
+Closed the JPEG export gap:
+- Added `jpeg-encoder = "0.4"` crate for baseline JPEG encoding.
+- `export_image` now supports `"jpeg"` / `"jpg"` output format with configurable quality (1–100, default 92).
+- `ExportImageRequest` extended with optional `quality` field.
+- Export UI dropdown now includes JPEG format option with quality slider.
+- Extension mapping updated: JPEG exports get `.jpg` extension.
+- Format coverage: PNG export ✅, TIFF-8 export ✅, TIFF-16 export ✅, JPEG export ✅.
+Verified: `cargo test` 107/107, `npm test` 454/454, `npm run build` ok, `npm run smoke` 10/10.
 
 ## Goal
 Replace placeholder export companions with real native Pipeline export outputs for JPEG, PNG, and TIFF-16, including deterministic batch export behavior.

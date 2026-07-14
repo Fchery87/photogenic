@@ -5,6 +5,7 @@ use tauri::WebviewWindow;
 pub mod core;
 pub mod catalog;
 pub mod viewport;
+pub mod licensing;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -392,6 +393,7 @@ mod render_pipeline_tests {
       recipe: json!({"version":1,"operations":[{"type":"exposure","params":{"ev":0.5}}]}),
       output_path: output_path.to_string_lossy().to_string(),
       output_format: None,
+      quality: None,
     })
     .unwrap();
 
@@ -440,6 +442,7 @@ mod render_pipeline_tests {
       }),
       output_path: output_path.to_string_lossy().to_string(),
       output_format: Some("tiff-8".to_string()),
+      quality: None,
     })
     .unwrap();
 
@@ -479,6 +482,7 @@ mod render_pipeline_tests {
       }),
       output_path: output_path.to_string_lossy().to_string(),
       output_format: Some("tiff-16".to_string()),
+      quality: None,
     })
     .unwrap();
 
@@ -715,7 +719,7 @@ fn apply_preset(
 }
 
 /// Criterion 9: Check licensing state before allowing export.
-/// Reads a `license.json` file from the app data directory.
+/// Reads a `license.json` file from the app data directory and verifies the Ed25519 signature.
 #[tauri::command]
 fn check_license(state: tauri::State<AppState>) -> Result<serde_json::Value, String> {
   let license_path = state.data_dir.join("license.json");
@@ -732,20 +736,25 @@ fn check_license(state: tauri::State<AppState>) -> Result<serde_json::Value, Str
   let license: serde_json::Value = serde_json::from_str(&content)
     .map_err(|e| format!("License file is malformed: {e}"))?;
 
-  let has_signature = license.get("signature").is_some();
-  let license_id = license
-    .get("licenseId")
-    .and_then(|v| v.as_str())
-    .unwrap_or("unknown");
-
-  Ok(serde_json::json!({
-    "activated": has_signature,
-    "reason": if has_signature {
-      format!("License active: {}", license_id)
-    } else {
-      "License file missing signature".to_string()
+  match licensing::verify_license_signature(&license) {
+    Ok(verified) => {
+      let license_id = verified
+        .get("licenseId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+      Ok(serde_json::json!({
+        "activated": true,
+        "reason": format!("License active: {}", license_id),
+        "license": verified,
+      }))
     }
-  }))
+    Err(reason) => {
+      Ok(serde_json::json!({
+        "activated": false,
+        "reason": reason,
+      }))
+    }
+  }
 }
 
 /// Culling: update rating, flag, reject, or color label for an image.
@@ -795,9 +804,12 @@ struct ExportImageRequest {
   source_path: String,
   recipe: serde_json::Value,
   output_path: String,
-  /// Output format: "png" (default), "tiff-8", or "tiff-16".
+  /// Output format: "png" (default), "tiff-8", "tiff-16", or "jpeg".
   #[serde(default)]
   output_format: Option<String>,
+  /// JPEG quality (1–100). Defaults to 92. Only used for JPEG format.
+  #[serde(default)]
+  quality: Option<u8>,
 }
 
 #[derive(Serialize)]
@@ -836,7 +848,7 @@ fn export_image(request: ExportImageRequest) -> Result<ExportImageResult, String
   let pixel_count = (width as usize) * (height as usize);
   // Determine output format early so we can skip unnecessary conversions
   let format_name = match request.output_format.as_deref().unwrap_or("png") {
-    "tiff-16" | "tiff-8" | "tiff" => request.output_format.as_deref().unwrap(),
+    "tiff-16" | "tiff-8" | "tiff" | "jpeg" | "jpg" => request.output_format.as_deref().unwrap(),
     _ => "png", // default / unknown formats fall back to PNG
   };
   // For 16-bit TIFF, skip the 8-bit conversion (computed separately below)
@@ -891,6 +903,12 @@ fn export_image(request: ExportImageRequest) -> Result<ExportImageResult, String
       let tiff_bytes = core::tiff_encoder::encode_tiff_rgb8(width, height, &rgb_bytes);
       std::fs::write(&request.output_path, &tiff_bytes)
         .map_err(|e| format!("Failed to write TIFF file: {e}"))?;
+    }
+    "jpeg" | "jpg" => {
+      let quality = request.quality.unwrap_or(92).clamp(1, 100);
+      let jpeg_bytes = encode_jpeg_rgb(width, height, &rgb_bytes, quality);
+      std::fs::write(&request.output_path, &jpeg_bytes)
+        .map_err(|e| format!("Failed to write JPEG file: {e}"))?;
     }
     _ => {
       // Default: PNG
@@ -1019,6 +1037,17 @@ fn import_images_into_store(
   }
 
   Ok(catalog::import::ImportSourcesResult { imported, skipped })
+}
+
+/// Encode RGB 8-bit pixel data as a baseline JPEG.
+fn encode_jpeg_rgb(width: u32, height: u32, rgb: &[u8], quality: u8) -> Vec<u8> {
+    use jpeg_encoder::{ColorType, Encoder};
+    let mut buf = Vec::new();
+    let mut encoder = Encoder::new(&mut buf, quality);
+    encoder
+        .encode(rgb, width as u16, height as u16, ColorType::Rgb)
+        .unwrap_or(());
+    buf
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

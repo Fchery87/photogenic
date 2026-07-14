@@ -1,6 +1,13 @@
 # Issue 12 — Internal alpha UI
 
-Status: ready-for-agent
+Status: done
+
+## Progress (JPEG export + license wiring, 2026-07-13)
+Wired the remaining production gaps:
+- JPEG format added to export dropdown with quality slider.
+- Export panel extension mapping handles `.jpg` for JPEG output.
+- License public key embedded in `tauri.conf.json` for JS-side access.
+- Ed25519 signature verification now active in the Rust `check_license` command.
 
 ## Progress (editor UI + Tauri bridge + full develop controls + preset/workspace/batch/export, 2026-07-12)
 Closed the implementable portions — **all 9 acceptance criteria now implemented**:

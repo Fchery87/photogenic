@@ -661,7 +661,9 @@ function init() {
       // Derive output path and extension from source and format
       const dotIdx = sourcePath.lastIndexOf(".");
       const baseName = dotIdx > 0 ? sourcePath.slice(0, dotIdx) : sourcePath;
-      const ext = format === "tiff-16" || format === "tiff-8" ? ".tiff" : ".png";
+      const ext = format === "tiff-16" || format === "tiff-8" ? ".tiff"
+        : format === "jpeg" || format === "jpg" ? ".jpg"
+        : ".png";
       const outputPath = `${baseName}-edited-${job.id}${ext}`;
       try {
         const result = await bridge.exportImage(
@@ -670,6 +672,7 @@ function init() {
           currentRecipe,
           outputPath,
           format,
+          quality,
         );
         job.status = "done";
         setStatus(
