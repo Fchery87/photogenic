@@ -596,7 +596,6 @@ impl SqliteCatalogStore {
                 },
             )
             .optional()
-            .map(|opt| opt)
     }
 
     /// List culling metadata for all images that have entries.

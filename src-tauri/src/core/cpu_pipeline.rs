@@ -234,7 +234,7 @@ fn tone_curve_from_recipe(recipe: &Recipe) -> ToneCurve {
         .operations()
         .iter()
         .filter_map(tone_curve_midpoint_y_from_operation)
-        .last()
+        .next_back()
         .unwrap_or(0.5);
     ToneCurve { midpoint_y }
 }

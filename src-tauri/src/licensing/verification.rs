@@ -40,7 +40,7 @@ fn exclude_signature(value: &Value) -> Value {
                 .filter(|(k, _)| *k != "signature")
                 .map(|(k, v)| (k.clone(), exclude_signature(v)))
                 .collect();
-            Value::Object(serde_json::Map::from_iter(filtered.into_iter()))
+            Value::Object(serde_json::Map::from_iter(filtered))
         }
         Value::Array(arr) => {
             Value::Array(arr.iter().map(exclude_signature).collect())

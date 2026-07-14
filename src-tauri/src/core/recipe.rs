@@ -510,7 +510,7 @@ fn validate_js_safe_numbers(value: &Value, path: &str) -> Result<(), RecipeError
                     ));
                 }
             } else if let Some(signed) = number.as_i64() {
-                if signed < -9_007_199_254_740_991 || signed > 9_007_199_254_740_991 {
+                if !(-9_007_199_254_740_991..=9_007_199_254_740_991).contains(&signed) {
                     return Err(RecipeError::new(
                         RecipeErrorKind::InvalidNumber,
                         format!("{path} contains an integer outside JavaScript's safe range"),

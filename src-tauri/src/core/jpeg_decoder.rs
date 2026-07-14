@@ -9,7 +9,6 @@
 //!
 //! Produces 8-bit RGB pixel data.
 
-use std::io::{self, Read};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -68,6 +67,7 @@ struct HuffmanTable {
     // Lookup: given a code length and code value, map to a symbol
     // We use the canonical Huffman approach: sorted by (length, value)
     symbols: Vec<u8>,
+    #[allow(dead_code)]
     code_lengths: Vec<u8>,
     // Min code value for each length (1-16)
     min_code: [i32; 17],
@@ -84,6 +84,7 @@ struct BitReader<'a> {
     bit_pos: u8, // 0-7, bits remaining in current byte
     current_byte: u8,
     // Restart marker support
+    #[allow(dead_code)]
     data_start: usize,
 }
 
@@ -106,8 +107,8 @@ impl<'a> BitReader<'a> {
             self.current_byte = self.data[self.byte_pos];
             self.byte_pos += 1;
             // Handle byte stuffing: FF 00 → FF
-            if self.current_byte == 0xFF {
-                if self.byte_pos < self.data.len() {
+            if self.current_byte == 0xFF
+                && self.byte_pos < self.data.len() {
                     let next = self.data[self.byte_pos];
                     if next == 0x00 {
                         // Stuffed FF, consume the 00
@@ -123,7 +124,6 @@ impl<'a> BitReader<'a> {
                         return Err("marker encountered in entropy data".to_string());
                     }
                 }
-            }
             self.bit_pos = 8;
         }
         self.bit_pos -= 1;
@@ -155,18 +155,17 @@ impl<'a> BitReader<'a> {
     }
 
     /// Check if we hit a restart marker (RST0-RST7 = FF D0 - FF D7)
+    #[allow(dead_code)]
     fn at_restart_marker(&self) -> bool {
-        if self.byte_pos + 1 <= self.data.len() && self.byte_pos > 0 {
+        if self.byte_pos < self.data.len() && self.byte_pos > 0 {
             // Check if the previous read stopped at a marker
         }
-        if self.byte_pos < self.data.len() {
-            if self.data[self.byte_pos.saturating_sub(1)] == 0xFF {
-                if self.byte_pos < self.data.len() {
+        if self.byte_pos < self.data.len()
+            && self.data[self.byte_pos.saturating_sub(1)] == 0xFF
+                && self.byte_pos < self.data.len() {
                     let m = self.data[self.byte_pos];
                     return (0xD0..=0xD7).contains(&m);
                 }
-            }
-        }
         false
     }
 
@@ -218,7 +217,7 @@ impl<'a> JpegDecoder<'a> {
                 }
                 _ => {
                     // Unknown marker — skip its payload if it has one
-                    if marker >= 0xFFD0 && marker <= 0xFFD9 {
+                    if (0xFFD0..=0xFFD9).contains(&marker) {
                         // Standalone markers (RST, SOI, EOI) have no payload
                         continue;
                     }
@@ -382,8 +381,8 @@ impl<'a> JpegDecoder<'a> {
 
             // Read 16 bytes: number of codes of each length (1-16)
             let mut counts = [0u8; 16];
-            for i in 0..16 {
-                counts[i] = self.read_u8()?;
+            for slot in counts.iter_mut() {
+                *slot = self.read_u8()?;
             }
 
             let total_symbols: usize = counts.iter().map(|&c| c as usize).sum();
@@ -410,7 +409,6 @@ impl<'a> JpegDecoder<'a> {
         let mut code_values = Vec::new();
 
         let mut k = 0usize; // symbol index
-        let mut code = 0u32;
 
         for length in 1..=16 {
             let count = counts[length - 1] as usize;
@@ -420,9 +418,7 @@ impl<'a> JpegDecoder<'a> {
                     code_values.push(symbols[k]);
                     k += 1;
                 }
-                code += 1;
             }
-            code <<= 1;
         }
 
         // Build lookup tables for each code length
@@ -443,7 +439,7 @@ impl<'a> JpegDecoder<'a> {
         }
 
         // Recompute properly: iterate through canonical codes
-        let mut k2 = 0usize;
+        let k2 = 0usize;
         let mut code2 = 0i32;
         for length in 1..=16usize {
             let count = counts[length - 1] as usize;
@@ -512,8 +508,8 @@ impl<'a> JpegDecoder<'a> {
         let mcu_pixel_h = (self.max_v as usize) * 8;
 
         // Number of MCUs
-        let mcus_x = ((self.width as usize) + mcu_pixel_w - 1) / mcu_pixel_w;
-        let mcus_y = ((self.height as usize) + mcu_pixel_h - 1) / mcu_pixel_h;
+        let mcus_x = (self.width as usize).div_ceil(mcu_pixel_w);
+        let mcus_y = (self.height as usize).div_ceil(mcu_pixel_h);
 
         // Allocate component sample buffers
         // Each component's full-resolution block grid
@@ -561,7 +557,7 @@ impl<'a> JpegDecoder<'a> {
                             let w_blocks = mcus_x * (comp.h_sample as usize);
                             let block_idx = (block_y * w_blocks + block_x) * 64;
 
-                            let dc_table_idx = (comp.dc_table as usize);
+                            let dc_table_idx = comp.dc_table as usize;
                             let ac_table_idx = 2 + (comp.ac_table as usize);
                             let quant_id = comp.quant_id as usize;
 
@@ -575,9 +571,8 @@ impl<'a> JpegDecoder<'a> {
                             )?;
 
                             // Store in component buffer
-                            for i in 0..64 {
-                                comp_samples[ci][block_idx + i] = block[i];
-                            }
+                            comp_samples[ci][block_idx..block_idx + 64]
+                                .copy_from_slice(&block[..64]);
                         }
                     }
                 }
@@ -686,15 +681,15 @@ impl<'a> JpegDecoder<'a> {
         let h = self.height as usize;
         let mut rgb = vec![0u8; w * h * 3];
 
-        let num_comp = self.components.len();
+        let _num_comp = self.components.len();
         // Compute MCU grid from component sample buffers
         let mcus_x = if self.max_h > 0 {
-            (w + (self.max_h as usize) * 8 - 1) / ((self.max_h as usize) * 8)
+            w.div_ceil((self.max_h as usize) * 8)
         } else {
             1
         };
         let mcus_y = if self.max_v > 0 {
-            (h + (self.max_v as usize) * 8 - 1) / ((self.max_v as usize) * 8)
+            h.div_ceil((self.max_v as usize) * 8)
         } else {
             1
         };
@@ -807,6 +802,7 @@ fn idct_8x8(input: &[i16; 64], output: &mut [f32; 64]) {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn idct_1d(input: &[f32; 8], output: &mut [f32; 8]) {
     // Using the straightforward O(N^2) IDCT for 8 points
     // x(n) = sum_{k=0}^{N-1} X(k) * C(k) * cos(pi*(2n+1)*k / (2N))
@@ -851,8 +847,8 @@ mod tests {
         input[0] = 80;
         let mut output = [0.0f32; 64];
         idct_8x8(&input, &mut output);
-        for i in 0..64 {
-            assert!((output[i] - 10.0).abs() < 0.01, "pixel {} = {}, expected 10.0", i, output[i]);
+        for (i, &v) in output.iter().enumerate() {
+            assert!((v - 10.0).abs() < 0.01, "pixel {} = {}, expected 10.0", i, v);
         }
     }
 
@@ -861,8 +857,8 @@ mod tests {
         let input = [0i16; 64];
         let mut output = [0.0f32; 64];
         idct_8x8(&input, &mut output);
-        for i in 0..64 {
-            assert!(output[i].abs() < 0.001, "pixel {} = {}, expected 0", i, output[i]);
+        for (i, &v) in output.iter().enumerate() {
+            assert!(v.abs() < 0.001, "pixel {} = {}, expected 0", i, v);
         }
     }
 

@@ -227,7 +227,7 @@ fn parse_dng_ifd(file_bytes: &[u8]) -> Result<DngParameters, String> {
 
     if params.strip_byte_count == 0 {
         // Estimate from dimensions and bit depth
-        let bytes_per_pixel = (params.bits_per_sample as usize + 7) / 8;
+        let bytes_per_pixel = (params.bits_per_sample as usize).div_ceil(8);
         params.strip_byte_count = (params.width as usize) * (params.height as usize) * bytes_per_pixel;
     }
 
@@ -606,15 +606,15 @@ mod tests {
         let rgb = demosaic_bilinear(&samples, w as u32, h as u32, &cfa);
 
         // Red sites (0,0), (2,0), (0,2), (2,2): R should be 0.8
-        let r00 = rgb[(0 * w + 0) * 3];
+        let r00 = rgb[0];
         assert!((r00 - 0.8).abs() < 0.001, "R at (0,0) should be 0.8, got {}", r00);
 
         // Blue sites (1,1), (3,1), (1,3), (3,3): B should be 0.2
-        let b11 = rgb[(1 * w + 1) * 3 + 2];
+        let b11 = rgb[(w + 1) * 3 + 2];
         assert!((b11 - 0.2).abs() < 0.001, "B at (1,1) should be 0.2, got {}", b11);
 
         // Green sites: G should be 0.4
-        let g01 = rgb[(0 * w + 1) * 3 + 1];
+        let g01 = rgb[4];
         assert!((g01 - 0.4).abs() < 0.001, "G at (0,1) should be 0.4, got {}", g01);
     }
 

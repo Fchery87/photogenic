@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -54,14 +54,20 @@ jobs:
       - name: Install npm dependencies
         run: npm ci || npm install
 
+      - name: Run npm lint
+        run: npm run lint
+
+      - name: Build frontend (needed for tauri::generate_context! in clippy)
+        run: npm run build
+
+      - name: Run cargo clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
       - name: Run npm tests
         run: npm test
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
-
-      - name: Build frontend
-        run: npm run build
 
       - name: Run smoke tests
         run: npm run smoke
@@ -104,7 +110,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable

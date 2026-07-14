@@ -822,6 +822,7 @@ fn list_culling(state: tauri::State<AppState>) -> Result<Vec<catalog::CullingMet
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportImageRequest {
+  #[allow(dead_code)]
   image_id: String,
   source_path: String,
   recipe: serde_json::Value,
@@ -1066,7 +1067,7 @@ fn import_images_into_store(
 fn encode_jpeg_rgb(width: u32, height: u32, rgb: &[u8], quality: u8) -> Vec<u8> {
     use jpeg_encoder::{ColorType, Encoder};
     let mut buf = Vec::new();
-    let mut encoder = Encoder::new(&mut buf, quality);
+    let encoder = Encoder::new(&mut buf, quality);
     encoder
         .encode(rgb, width as u16, height as u16, ColorType::Rgb)
         .unwrap_or(());
@@ -1164,6 +1165,7 @@ fn collect_and_save_viewport_proof(app: &tauri::AppHandle) {
 }
 
 /// Build self-contained JS that triggers viewport proof collection from the webview.
+#[allow(dead_code)]
 fn build_webview_gate_js() -> String {
     r#"
 setTimeout(async () => {
@@ -1185,7 +1187,7 @@ fn write_proof_file(output_path: &std::path::Path, now: &str, webview_info: &ser
         "platform":"linux","collectedAt":now,"shell":"tauri-native","webkitgtkVersion":"4.1",
         "webview": webview_info,
         "results":results,
-        "gradientOnly":gradient_only,"provisional":passed_ids.len()>0&&!all_passed,
+        "gradientOnly":gradient_only,"provisional":!passed_ids.is_empty()&&!all_passed,
         "shellDecisionUnlocked":all_passed,"fallbackActivated":!measured_failures.is_empty(),
         "measuredGateFailures":measured_failures,"passedGates":passed_ids,"reason":reason,
     });

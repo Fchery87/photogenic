@@ -24,7 +24,7 @@ fn encode_tiff(width: u32, height: u32, pixel_data: &[u8], bits_per_sample: u16)
     //   Offset 8: IFD
     //   After IFD: BitsPerSample values (if needed), then strip data
 
-    let little_endian = true;
+    let _little_endian = true;
     let mut buf = Vec::new();
 
     // --- Header ---

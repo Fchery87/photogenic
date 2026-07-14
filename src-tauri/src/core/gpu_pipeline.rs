@@ -121,7 +121,7 @@ impl GpuPipeline {
                 "GPU exposure sample count exceeds u32 range",
             )
         })?;
-        let buffer_size = (source.samples().len() * std::mem::size_of::<f32>()) as u64;
+        let buffer_size = std::mem::size_of_val(source.samples()) as u64;
         let multiplier = 2.0_f32.powf(exposure_ev(recipe));
         let white_balance = white_balance_from_recipe(recipe);
         let contrast_multiplier = contrast_multiplier_from_recipe(recipe);
@@ -457,7 +457,7 @@ fn tone_curve_from_recipe(recipe: &Recipe) -> ToneCurve {
         .operations()
         .iter()
         .filter_map(tone_curve_midpoint_y_from_operation)
-        .last()
+        .next_back()
         .unwrap_or(0.5);
     ToneCurve { midpoint_y }
 }

@@ -487,8 +487,8 @@ mod tests {
         // Solid gray (Y=128, Cb=128, Cr=128) → RGB ≈ 128/255 ≈ 0.502
         let samples = decoded.buffer().samples();
         assert_eq!(samples.len(), 8 * 8 * 3);
-        for i in 0..samples.len() {
-            assert!((samples[i] - 128.0 / 255.0).abs() < 0.05, "pixel {} ≈ gray", i);
+        for (i, &s) in samples.iter().enumerate() {
+            assert!((s - 128.0 / 255.0).abs() < 0.05, "pixel {} ≈ gray", i);
         }
     }
 
@@ -577,7 +577,7 @@ mod tests {
         assert!((r00 - 0.8).abs() < 0.01, "R at (0,0) ≈ 0.8, got {}", r00);
 
         // Pixel (1,1) is a B site: B should be ≈0.2
-        let b11 = samples[(1 * 4 + 1) * 3 + 2];
+        let b11 = samples[(4 + 1) * 3 + 2];
         assert!((b11 - 0.2).abs() < 0.01, "B at (1,1) ≈ 0.2, got {}", b11);
     }
 
