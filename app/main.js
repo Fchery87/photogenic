@@ -7,65 +7,20 @@
  */
 
 import { createTauriBridge } from "./tauri-bridge.js";
+import {
+  GATE_ORDER,
+  MIN_FPS,
+  hasNativeProvenance,
+  isGenuinePass,
+  evaluateProof,
+  mergeResults,
+} from "./src/viewport-proof-collector.js";
 
 const bridge = createTauriBridge();
 
 // -- Viewport Proof Collector (Issue 10) -----------------------------------
-
-const GATE_ORDER = ["gradient", "raw_frame", "zoom_pan", "overlay", "color_managed", "sustained_60fps"];
-const MIN_FPS = 60;
-
-function hasNativeProvenance(metrics) {
-  if (!metrics) return false;
-  return typeof metrics.sourceFileId === "string" && metrics.sourceFileId.length > 0 &&
-    typeof metrics.recipeFingerprint === "string" && metrics.recipeFingerprint.length >= 64 &&
-    typeof metrics.frameWidth === "number" && metrics.frameWidth > 0 &&
-    typeof metrics.frameHeight === "number" && metrics.frameHeight > 0 &&
-    typeof metrics.transferMethod === "string" && metrics.transferMethod.length > 0 &&
-    typeof metrics.frameHash === "string" && metrics.frameHash.length >= 64 &&
-    typeof metrics.renderDurationMs === "number" && metrics.renderDurationMs >= 0;
-}
-
-function isGenuinePass(r) {
-  if (!r || r.passed !== true) return false;
-  if (r.id === "raw_frame" && !hasNativeProvenance(r.metrics)) return false;
-  if (r.id === "sustained_60fps" && (typeof r.fps !== "number" || r.fps < MIN_FPS)) return false;
-  return true;
-}
-
-function evaluateProof(results) {
-  const byId = {};
-  for (const r of results) byId[r.id] = r;
-  const passed = GATE_ORDER.filter(id => byId[id] && isGenuinePass(byId[id]));
-  const remaining = GATE_ORDER.filter(id => !passed.includes(id));
-  const allPassed = remaining.length === 0;
-  const gradientOnly = passed.length === 1 && passed[0] === "gradient";
-  const rawR = byId["raw_frame"];
-  const rawMissing = rawR?.passed && !hasNativeProvenance(rawR.metrics);
-  const failures = GATE_ORDER.filter(id => {
-    const r = byId[id];
-    return r?.passed === false && r.measured !== false;
-  });
-  let reason;
-  if (allPassed) reason = "All viewport gates passed. Shell decision may be locked (ADR-0004).";
-  else if (gradientOnly) reason = "Gradient passed but later gates are unproven. Shell decision stays provisional (ADR-0004).";
-  else if (rawMissing) reason = "Raw-frame provenance missing or incomplete.";
-  else if (!passed.includes("gradient")) reason = "Gradient gate not yet passed.";
-  else reason = "Viewport proof incomplete.";
-  if (failures.length) reason += ` ADR-0004 fallback activated by measured gate failure: ${failures.join(", ")}.`;
-  return {
-    gradientOnly, provisional: passed.length > 0 && !allPassed,
-    shellDecisionUnlocked: allPassed, fallbackActivated: failures.length > 0,
-    measuredGateFailures: failures, passedGates: passed, remainingGates: remaining, reason,
-  };
-}
-
-function mergeResults(existing, incoming) {
-  const byId = {};
-  for (const r of existing) byId[r.id] = r;
-  for (const r of incoming) byId[r.id] = r;
-  return Object.values(byId);
-}
+// Pure functions (GATE_ORDER, MIN_FPS, hasNativeProvenance, isGenuinePass,
+// evaluateProof, mergeResults) are now imported from viewport-proof-collector.ts.
 
 async function collectViewportProof() {
   if (!bridge.available) return null;

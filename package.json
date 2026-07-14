@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Phase 0 scaffold + foundation seams for the Photogenic cross-platform AI photo editor.",
   "scripts": {
-    "test": "node --test test/*.test.js && npm run test:components",
+    "test": "node --test --import tsx test/*.test.js && npm run test:components",
     "test:components": "node --test --import tsx --import ./test/setup/dom.js test/components/*.test.js",
     "build": "vite build",
     "build:legacy": "node scripts/build.mjs",
