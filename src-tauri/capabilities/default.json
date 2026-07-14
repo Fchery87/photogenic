@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main editor window. Grants core window/webview operations and the log plugin. Custom Tauri commands (list_library, get_recipe, save_recipe, render_pipeline, pipeline_capabilities, import_sources, list_presets, save_preset, apply_preset, get_workspace_state, save_workspace_state, batch_sync, check_license, update_culling, list_culling, export_image, import_images, viewport_proof_results, save_viewport_proof) are accessible by default in Tauri v2. No fs/shell/dialog plugin scopes are granted — file I/O goes through the custom commands which operate Rust-side.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "log:default"
+  ]
+}

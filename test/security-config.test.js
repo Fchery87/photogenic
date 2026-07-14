@@ -31,3 +31,49 @@ test("CSP policy allows data: img-src for canvas pixel display", () => {
     "CSP must allow data: in img-src for canvas pixel display",
   );
 });
+
+// ---------------------------------------------------------------------------
+// Tauri capabilities file
+// ---------------------------------------------------------------------------
+
+const capabilitiesPath = join(__dirname, "..", "src-tauri", "capabilities", "default.json");
+
+test("src-tauri/capabilities/default.json exists and is valid JSON", () => {
+  const raw = readFileSync(capabilitiesPath, "utf8");
+  const caps = JSON.parse(raw);
+  assert.ok(caps.identifier, "capabilities file must have an identifier");
+  assert.ok(Array.isArray(caps.windows), "capabilities file must specify windows");
+  assert.ok(caps.windows.includes("main"), "capabilities must target the main window");
+  assert.ok(Array.isArray(caps.permissions), "capabilities must have a permissions array");
+});
+
+test("capabilities file grants core:default for basic window operation", () => {
+  const caps = JSON.parse(readFileSync(capabilitiesPath, "utf8"));
+  assert.ok(
+    caps.permissions.includes("core:default"),
+    "capabilities must include core:default",
+  );
+});
+
+test("capabilities file grants log plugin permission", () => {
+  const caps = JSON.parse(readFileSync(capabilitiesPath, "utf8"));
+  assert.ok(
+    caps.permissions.some((p) => typeof p === "string" && p.startsWith("log:")),
+    "capabilities must grant the log plugin (tauri_plugin_log is registered)",
+  );
+});
+
+test("capabilities file does NOT grant broad fs/shell/dialog permissions", () => {
+  const caps = JSON.parse(readFileSync(capabilitiesPath, "utf8"));
+  for (const perm of caps.permissions) {
+    const ident = typeof perm === "string" ? perm : perm.identifier;
+    assert.ok(
+      !ident.startsWith("fs:") || ident === "fs:default",
+      `unexpected broad fs permission: ${ident}`,
+    );
+    assert.ok(
+      !ident.startsWith("shell:"),
+      `unexpected shell permission: ${ident}`,
+    );
+  }
+});
