@@ -17,7 +17,7 @@ pub struct CatalogRecipeEntry {
     pub updated_at: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, specta::Type)]
 pub struct ImportedImageRow {
     pub image_id: String,
     pub source_path: String,
@@ -27,7 +27,7 @@ pub struct ImportedImageRow {
     pub modified_at: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, specta::Type)]
 pub struct PresetEntry {
     pub preset_id: String,
     pub name: String,
@@ -36,14 +36,14 @@ pub struct PresetEntry {
     pub updated_at: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, specta::Type)]
 pub struct WorkspaceStateEntry {
     pub workspace_id: String,
     pub state_json: String,
     pub updated_at: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, specta::Type)]
 pub struct BatchSyncResult {
     pub updated_count: u32,
     pub skipped_count: u32,
@@ -53,7 +53,7 @@ pub struct BatchSyncResult {
 /// Culling metadata for a library image.
 /// `rating` is 0-5, `flagged`/`rejected` are booleans stored as 0/1,
 /// `color_label` is an optional string (e.g. "red", "blue").
-#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, specta::Type)]
 pub struct CullingMetadata {
     pub image_id: String,
     pub rating: i32,

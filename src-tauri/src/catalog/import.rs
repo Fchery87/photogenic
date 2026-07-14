@@ -8,14 +8,14 @@ use serde::{Deserialize, Serialize};
 
 use super::store::{ImportedImageRow, SqliteCatalogStore};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSourcesRequest {
     pub database_path: String,
     pub source_paths: Vec<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSourceEntry {
     pub image_id: String,
@@ -26,14 +26,14 @@ pub struct ImportSourceEntry {
     pub modified_at: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SkippedImportSource {
     pub source_path: String,
     pub reason: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSourcesResult {
     pub imported: Vec<ImportSourceEntry>,
@@ -41,6 +41,7 @@ pub struct ImportSourcesResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_sources(request: ImportSourcesRequest) -> Result<ImportSourcesResult, String> {
     if request.database_path.is_empty() {
         return Err("database path is required".to_string());

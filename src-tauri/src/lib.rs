@@ -3,13 +3,15 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::WebviewWindow;
+use tauri_specta::{collect_commands, Builder};
+use specta_typescript::{BigIntExportBehavior, Typescript};
 
 pub mod core;
 pub mod catalog;
 pub mod viewport;
 pub mod licensing;
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct ViewportProofMetrics {
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,7 +48,7 @@ struct ViewportProofMetrics {
   alpha: Option<u8>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 struct ViewportProofResult {
   id: &'static str,
   passed: bool,
@@ -57,14 +59,14 @@ struct ViewportProofResult {
   note: String,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 enum PipelineRenderMode {
   Preview,
   Export,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct PipelineRenderSource {
   image_id: String,
@@ -74,7 +76,7 @@ struct PipelineRenderSource {
   height: u32,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct PipelineRenderSourceIdentity {
   image_id: String,
@@ -82,7 +84,7 @@ struct PipelineRenderSourceIdentity {
   revision: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct PipelineRenderOutput {
   width: u32,
@@ -90,7 +92,7 @@ struct PipelineRenderOutput {
   format: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct PipelineRenderRequest {
   mode: PipelineRenderMode,
@@ -106,14 +108,14 @@ struct PipelineRenderRequest {
   samples: Vec<f32>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct PipelineRenderHash {
   algorithm: &'static str,
   value: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct PipelineRenderResult {
   mode: PipelineRenderMode,
@@ -127,6 +129,7 @@ struct PipelineRenderResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
   let inner_size = window.inner_size().ok();
   let scale_factor = window.scale_factor().ok();
@@ -266,6 +269,7 @@ fn viewport_proof_results(window: WebviewWindow) -> Vec<ViewportProofResult> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn pipeline_capabilities() -> core::PipelineCapabilities {
   core::detect_pipeline_capabilities().await
 }
@@ -273,6 +277,7 @@ async fn pipeline_capabilities() -> core::PipelineCapabilities {
 /// Save the viewport proof report to the verification directory.
 /// Called by the webview JS after collecting all gate results.
 #[tauri::command]
+#[specta::specta]
 fn save_viewport_proof(report_json: String) -> Result<(), String> {
   let report: serde_json::Value = serde_json::from_str(&report_json)
     .map_err(|e| format!("Invalid report JSON: {e}"))?;
@@ -291,6 +296,7 @@ fn save_viewport_proof(report_json: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 async fn render_pipeline(request: PipelineRenderRequest) -> Result<PipelineRenderResult, String> {
   let recipe = core::Recipe::from_value(request.recipe).map_err(|error| error.to_string())?;
   let output_width = request
@@ -583,12 +589,14 @@ struct AppState {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn list_library(state: tauri::State<AppState>) -> Result<Vec<catalog::ImportedImageRow>, String> {
   let store = state.catalog.lock().map_err(|e| e.to_string())?;
   store.list_imported_images().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_recipe(
   state: tauri::State<AppState>,
   image_id: String,
@@ -605,6 +613,7 @@ fn get_recipe(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn save_recipe(
   state: tauri::State<AppState>,
   image_id: String,
@@ -632,12 +641,14 @@ fn save_recipe(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn list_presets(state: tauri::State<AppState>) -> Result<Vec<catalog::PresetEntry>, String> {
   let store = state.catalog.lock().map_err(|e| e.to_string())?;
   store.list_presets().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
+#[specta::specta]
 fn save_preset(
   state: tauri::State<AppState>,
   preset_id: String,
@@ -656,6 +667,7 @@ fn save_preset(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn get_workspace_state(
   state: tauri::State<AppState>,
   workspace_id: String,
@@ -667,6 +679,7 @@ fn get_workspace_state(
 }
 
 #[tauri::command]
+#[specta::specta]
 fn save_workspace_state(
   state: tauri::State<AppState>,
   workspace_id: String,
@@ -686,6 +699,7 @@ fn save_workspace_state(
 /// Criterion 8: Batch Sync — copy selected operation types from a source
 /// image's recipe to all other images in the library.
 #[tauri::command]
+#[specta::specta]
 fn batch_sync(
   state: tauri::State<AppState>,
   source_image_id: String,
@@ -704,6 +718,7 @@ fn batch_sync(
 /// Criterion 7: Apply a preset to an image with full recipe validation.
 /// Returns an error if the preset recipe is structurally invalid.
 #[tauri::command]
+#[specta::specta]
 fn apply_preset(
   state: tauri::State<AppState>,
   preset_id: String,
@@ -743,6 +758,7 @@ fn apply_preset(
 /// Criterion 9: Check licensing state before allowing export.
 /// Reads a `license.json` file from the app data directory and verifies the Ed25519 signature.
 #[tauri::command]
+#[specta::specta]
 fn check_license(state: tauri::State<AppState>) -> Result<serde_json::Value, String> {
   let license_path = state.data_dir.join("license.json");
 
@@ -783,6 +799,7 @@ fn check_license(state: tauri::State<AppState>) -> Result<serde_json::Value, Str
 /// Any field left as `None` is unchanged.  An empty `color_label` string
 /// clears the label.
 #[tauri::command]
+#[specta::specta]
 fn update_culling(
   state: tauri::State<AppState>,
   image_id: String,
@@ -811,6 +828,7 @@ fn update_culling(
 
 /// Culling: list all culling metadata entries.
 #[tauri::command]
+#[specta::specta]
 fn list_culling(state: tauri::State<AppState>) -> Result<Vec<catalog::CullingMetadata>, String> {
   let store = state.catalog.lock().map_err(|e| e.to_string())?;
   store.list_culling_metadata().map_err(|e| e.to_string())
@@ -819,7 +837,7 @@ fn list_culling(state: tauri::State<AppState>) -> Result<Vec<catalog::CullingMet
 /// Export: decode source → apply pipeline → encode PNG → write to file.
 /// This is the real export path for Issue 13 (writes real Pipeline outputs)
 /// wired from the Issue 12 export panel (criterion 9: export execution).
-#[derive(Deserialize)]
+#[derive(Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct ExportImageRequest {
   #[allow(dead_code)]
@@ -835,7 +853,7 @@ struct ExportImageRequest {
   quality: Option<u8>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 struct ExportImageResult {
   output_path: String,
@@ -847,6 +865,7 @@ struct ExportImageResult {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn export_image(request: ExportImageRequest) -> Result<ExportImageResult, String> {
   // 1. Parse recipe
   let recipe = core::Recipe::from_value(request.recipe).map_err(|e| e.to_string())?;
@@ -975,6 +994,7 @@ fn export_image(request: ExportImageRequest) -> Result<ExportImageResult, String
 
 /// Import source files into the managed catalog store.
 #[tauri::command]
+#[specta::specta]
 fn import_images(
   state: tauri::State<AppState>,
   source_paths: Vec<String>,
@@ -1249,6 +1269,13 @@ fn is_leap(y: i64) -> bool {
 /// cannot start, there is no UI to recover to and the process must exit.
 #[allow(clippy::expect_used)]
 pub fn run() {
+  let builder = specta_builder();
+
+  #[cfg(debug_assertions)]
+  builder
+    .export(Typescript::default().bigint(BigIntExportBehavior::Number), "../app/bindings.ts")
+    .expect("failed to export tauri-specta bindings");
+
   tauri::Builder::default()
     .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
     .setup(|app| {
@@ -1277,29 +1304,35 @@ pub fn run() {
       });
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![
-      viewport_proof_results,
-      save_viewport_proof,
-      pipeline_capabilities,
-      render_pipeline,
-      catalog::import::import_sources,
-      list_library,
-      get_recipe,
-      save_recipe,
-      list_presets,
-      save_preset,
-      apply_preset,
-      get_workspace_state,
-      save_workspace_state,
-      batch_sync,
-      check_license,
-      update_culling,
-      list_culling,
-      export_image,
-      import_images
-    ])
+    .invoke_handler(builder.invoke_handler())
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+}
+
+/// Returns a tauri-specta Builder with all commands registered.
+/// Used by both `run()` (for the app) and `export-bindings` (for CI).
+pub fn specta_builder() -> Builder<tauri::Wry> {
+  Builder::<tauri::Wry>::new().commands(collect_commands![
+    viewport_proof_results,
+    save_viewport_proof,
+    pipeline_capabilities,
+    render_pipeline,
+    catalog::import::import_sources,
+    list_library,
+    get_recipe,
+    save_recipe,
+    list_presets,
+    save_preset,
+    apply_preset,
+    get_workspace_state,
+    save_workspace_state,
+    batch_sync,
+    check_license,
+    update_culling,
+    list_culling,
+    export_image,
+    import_images
+  ])
 }
 
 #[cfg(test)]
