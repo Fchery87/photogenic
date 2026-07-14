@@ -138,7 +138,6 @@ jobs:
 
       - name: Build Tauri bundle
         run: npm run tauri:build -- --target ${{ matrix.target }}
-        continue-on-error: true
         id: tauri-build
 
       - name: Upload bundle artifacts
@@ -157,6 +156,7 @@ jobs:
 
       - name: Report build status
         if: always()
+        shell: bash
         run: |
           echo "::notice::Tauri build on ${{ runner.os }}: ${{ steps.tauri-build.outcome }}"
           if [ "${{ steps.tauri-build.outcome }}" = "failure" ]; then
