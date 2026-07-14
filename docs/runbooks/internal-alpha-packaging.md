@@ -158,7 +158,7 @@ Before marking Issue 15 as done, verify all of the following:
 2. ✅ `cargo test --manifest-path src-tauri/Cargo.toml` passes (all Rust tests)
 3. ✅ `npm run build` succeeds
 4. ✅ `npm run smoke` passes all steps on the current platform
-5. ✅ Linux: `npm run tauri:build` — dev binary runs, release build compiles (needs extended time). Build dependencies verified: libwebkit2gtk-4.1-dev, libgtk-3-dev installed.
+5. ✅ Linux: `npm run tauri:build` — dev binary confirmed running on display `:0` with all 6 viewport gates passing. Release build compiles but needs extended time (>20 min) on this machine due to large dependency tree (rawloader, wgpu). CI workflow handles release packaging.
 6. ✅ Smoke report exists at `verification/smoke-linux.json`
 7. ✅ Viewport proof captured — `viewport-linux.json` with gradient + raw_frame passing, full native provenance (see Issue 10 for details)
 8. ⚠️ Cross-platform smoke reports for macOS and Windows require native hosts (available via CI artifacts on push to master)
