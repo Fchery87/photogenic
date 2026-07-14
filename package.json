@@ -6,15 +6,23 @@
   "description": "Phase 0 scaffold + foundation seams for the Photogenic cross-platform AI photo editor.",
   "scripts": {
     "test": "node --test",
-    "build": "node scripts/build.mjs",
+    "build": "vite build",
+    "build:legacy": "node scripts/build.mjs",
+    "dev": "vite",
     "lint": "node scripts/lint.mjs",
-    "typecheck": "command -v tsc >/dev/null 2>&1 && tsc --noEmit --allowJs --checkJs src/**/*.js test/**/*.js || echo 'tsc not installed; skipping typecheck'",
+    "typecheck": "tsc --noEmit",
     "tauri:attempt": "node scripts/tauri-attempt.mjs",
     "tauri:dev": "npx @tauri-apps/cli@2.11.4 dev",
     "tauri:build": "npx @tauri-apps/cli@2.11.4 build",
     "smoke": "node scripts/smoke.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4"
   }
 }

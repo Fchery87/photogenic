@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.fchery87.photogenic",
   "build": {
-    "frontendDist": "../dist/app",
-    "beforeDevCommand": "npm run build",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
   "app": {
