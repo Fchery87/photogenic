@@ -943,7 +943,8 @@ fn export_image(request: ExportImageRequest) -> Result<ExportImageResult, String
       encoder.add_text_chunk(
         "RecipeFingerprint".to_string(),
         recipe.fingerprint().clone(),
-      );
+      )
+      .map_err(|e| format!("PNG recipe-fingerprint write failed: {e}"))?;
       let mut png_writer = encoder
         .write_header()
         .map_err(|e| format!("PNG header write failed: {e}"))?;
