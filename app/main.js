@@ -695,22 +695,6 @@ function init() {
   } else {
     setBadge("license-badge", "Checking…", "badge--unknown");
 
-    checkPipeline();
-    refreshLibrary();
-    // Restore last workspace state (criterion 3: reopen restores selected image)
-    (async () => {
-      try {
-        const ws = await bridge.getWorkspaceState("default");
-        if (ws?.stateJson) {
-          const state = typeof ws.stateJson === "string" ? JSON.parse(ws.stateJson) : ws.stateJson;
-          if (state.selectedImageId) {
-            setStatus(`Restoring last session: ${state.selectedImageId}`);
-            setTimeout(() => selectImage(state.selectedImageId), 500);
-          }
-        }
-      } catch { /* non-fatal */ }
-    })();
-
     // Issue 10: auto-collect viewport proof on startup (deferred to ensure DOM + bridge are ready)
     setTimeout(async () => {
       try {
@@ -732,6 +716,22 @@ function init() {
         setStatus(`Viewport proof collection failed: ${e.message}`);
       }
     }, 2000);
+
+    checkPipeline();
+    refreshLibrary();
+    // Restore last workspace state (criterion 3: reopen restores selected image)
+    (async () => {
+      try {
+        const ws = await bridge.getWorkspaceState("default");
+        if (ws?.stateJson) {
+          const state = typeof ws.stateJson === "string" ? JSON.parse(ws.stateJson) : ws.stateJson;
+          if (state.selectedImageId) {
+            setStatus(`Restoring last session: ${state.selectedImageId}`);
+            setTimeout(() => selectImage(state.selectedImageId), 500);
+          }
+        }
+      } catch { /* non-fatal */ }
+    })();
   }
 
   wireControls();
@@ -903,5 +903,9 @@ function init() {
 }
 
 if (typeof document !== "undefined") {
+  // Expose the viewport proof collector for Rust-side eval() injection
+  if (typeof window !== "undefined") {
+    window.__collectViewportProof = collectViewportProof;
+  }
   init();
 }

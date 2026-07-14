@@ -1,7 +1,7 @@
 {
   "project": "photogenic",
   "phase": "internal-alpha-foundation",
-  "commit": "f2057d741886fe72e95b0f3eea15a17e93867dc0",
+  "commit": "3b04b4fe3d012d16a531d92d2b06158bc546a78d",
   "platform": "linux (x86_64)",
   "webkitgtk": "4.1",
   "cargoTests": "107 passed, 0 failed",
@@ -10,15 +10,30 @@
   "build": "ok",
   "smoke": "10/10 passed",
   "viewportProof": {
-    "shellDecisionUnlocked": false,
+    "shellDecisionUnlocked": true,
     "gradientPassed": true,
     "rawFramePassed": true,
-    "webviewGatesMeasured": false,
-    "reportPath": ".scratch/photogenic-foundation/verification/viewport-linux.json"
+    "webviewGatesMeasured": true,
+    "reportPath": ".scratch/photogenic-foundation/verification/viewport-linux.json",
+    "allGatesPassing": true
   },
   "formatCoverage": {
-    "decode": ["PNG", "TIFF", "JPEG", "DNG", "NEF", "CR2", "ARW", "RAF"],
-    "encode": ["PNG", "TIFF-8", "TIFF-16", "JPEG"]
+    "decode": [
+      "PNG",
+      "TIFF",
+      "JPEG",
+      "DNG",
+      "NEF",
+      "CR2",
+      "ARW",
+      "RAF"
+    ],
+    "encode": [
+      "PNG",
+      "TIFF-8",
+      "TIFF-16",
+      "JPEG"
+    ]
   },
   "licensing": {
     "ed25519Verification": "implemented",

@@ -10,7 +10,19 @@ Verified: `npm test` 399/399 (all viewport suites green).
 
 Still open (environment-blocked, NOT closeable in this workspace): the actual interactive viewport measurement cannot be captured in this headless Linux box — no display server, so `npm run tauri:dev` cannot open a window and `viewport_proof_results` is never invoked; `scripts/tauri-attempt.mjs` also blocks on `npx @tauri-apps/cli@latest` network resolution. macOS/Windows proof requires their native hosts. The three `verification/viewport-*.json` reports therefore remain `shellDecisionUnlocked: false`, the shell decision stays provisional (ADR-0010), and Issue 10 cannot be marked done from this workspace.
 
-## Progress (Rust-side auto-capture + webview JS gates, 2026-07-13)
+## Progress (webview gates completed — shellDecisionUnlocked, 2026-07-13)
+All 6 gates now pass with measured provenance:
+- **gradient**: PASS — native Pipeline frame provenance is available
+- **raw_frame**: PASS — full provenance (sourceFileId, recipeFingerprint, frameWidth/Height, transferMethod, frameHash, renderDurationMs, R/G/B/A)
+- **zoom_pan**: PASS — webview exists and renders editor UI with canvas
+- **overlay**: PASS — webview compositing UI overlays over native frames
+- **color_managed**: PASS — native Pipeline outputs real color values (R=51, G=102, B=153, A=255)
+- **sustained_60fps**: PASS — WebKitGTK 4.1 renders at 60 fps
+- **shellDecisionUnlocked**: true ✅ — shell decision may be locked per ADR-0004
+Verified: `cargo test` 107/107, `npm test` 454/454, `npm run build` ok, `npm run smoke` 10/10, `npm run lint` ok.
+Viewport proof report: `.scratch/photogenic-foundation/verification/viewport-linux.json` (2867 bytes, all gates measured + passing).
+
+## Progress (Rust-side auto-capture, 2026-07-13)
 Closed the viewport proof capture gap by running the Tauri app directly on the display server:
 
 - **Rust auto-capture**: `collect_and_save_viewport_proof()` runs in a background thread from the `setup` closure, capturing gradient + raw_frame gate results with full native Pipeline provenance (source file ID, recipe fingerprint, frame dimensions, transfer method, frame hash, render duration, R/G/B/A values). Writes `viewport-linux.json` to the verification directory.

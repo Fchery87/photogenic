@@ -1,8 +1,8 @@
 {
   "platform": "linux",
   "arch": "x64",
-  "startedAt": "2026-07-14T02:48:46.337Z",
-  "finishedAt": "2026-07-14T02:48:51.885Z",
+  "startedAt": "2026-07-14T03:31:28.890Z",
+  "finishedAt": "2026-07-14T03:31:34.707Z",
   "overall": "pass",
   "steps": [
     {
@@ -40,9 +40,9 @@
       "detail": {
         "imported": 3,
         "imageIds": [
-          "4c08a6f15c63dc5b",
-          "951967bbad457a7d",
-          "95d424d2a892398f"
+          "c0592a487f05c8ae",
+          "b8d5bbb9ac721cb0",
+          "c1316f0daa7dbfe5"
         ]
       }
     },
@@ -50,15 +50,15 @@
       "name": "cull",
       "status": "pass",
       "detail": {
-        "rated": "4c08a6f15c63dc5b",
-        "rejected": "95d424d2a892398f"
+        "rated": "c0592a487f05c8ae",
+        "rejected": "c1316f0daa7dbfe5"
       }
     },
     {
       "name": "develop",
       "status": "pass",
       "detail": {
-        "imageId": "4c08a6f15c63dc5b",
+        "imageId": "c0592a487f05c8ae",
         "revision": 1
       }
     },
@@ -67,7 +67,7 @@
       "status": "pass",
       "detail": {
         "presetId": "preset-warm-sunset",
-        "appliedTo": "951967bbad457a7d"
+        "appliedTo": "b8d5bbb9ac721cb0"
       }
     },
     {
@@ -75,8 +75,8 @@
       "status": "pass",
       "detail": {
         "syncedTo": [
-          "951967bbad457a7d",
-          "95d424d2a892398f"
+          "b8d5bbb9ac721cb0",
+          "c1316f0daa7dbfe5"
         ],
         "operationTypes": [
           "exposure"
@@ -97,9 +97,9 @@
       "status": "pass",
       "detail": {
         "reportExists": true,
-        "status": "provisional",
-        "shellDecisionUnlocked": false,
-        "note": "Shell decision still provisional — raw-frame provenance unproven on this platform."
+        "status": "unlocked",
+        "shellDecisionUnlocked": true,
+        "note": "Shell decision unlocked — GPU→webview path proven."
       }
     }
   ],

@@ -10,19 +10,19 @@
 function resolveInvoke() {
   const tauri = typeof globalThis !== "undefined" ? globalThis.__TAURI__ : undefined;
   if (!tauri) return undefined;
-  // Tauri v2 exposes invoke at __TAURI__.core.invoke
   if (tauri.core && typeof tauri.core.invoke === "function") return tauri.core.invoke;
-  // Tauri v1 fallback
   if (typeof tauri.invoke === "function") return tauri.invoke;
   return undefined;
 }
 
 export function createTauriBridge() {
-  const invoke = resolveInvoke();
-  const available = typeof invoke === "function";
+  function getInvoke() {
+    return resolveInvoke();
+  }
 
   function call(command, args) {
-    if (!available) {
+    const invoke = getInvoke();
+    if (!invoke) {
       return Promise.reject(
         new Error(`Tauri backend not available — cannot invoke '${command}'.`),
       );
@@ -31,7 +31,10 @@ export function createTauriBridge() {
   }
 
   return {
-    available,
+    /** Whether invoke is currently available. Lazy — checked on each call. */
+    get available() {
+      return typeof getInvoke() === "function";
+    },
 
     /** List all imported images from the SQLite catalog. */
     listLibrary() {
