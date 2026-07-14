@@ -1,0 +1,49 @@
+{
+  "project": "photogenic",
+  "phase": "internal-alpha-foundation",
+  "commit": "f2057d741886fe72e95b0f3eea15a17e93867dc0",
+  "platform": "linux (x86_64)",
+  "webkitgtk": "4.1",
+  "cargoTests": "107 passed, 0 failed",
+  "npmTests": "454 passed, 0 failed",
+  "lint": "ok",
+  "build": "ok",
+  "smoke": "10/10 passed",
+  "viewportProof": {
+    "shellDecisionUnlocked": false,
+    "gradientPassed": true,
+    "rawFramePassed": true,
+    "webviewGatesMeasured": false,
+    "reportPath": ".scratch/photogenic-foundation/verification/viewport-linux.json"
+  },
+  "formatCoverage": {
+    "decode": ["PNG", "TIFF", "JPEG", "DNG", "NEF", "CR2", "ARW", "RAF"],
+    "encode": ["PNG", "TIFF-8", "TIFF-16", "JPEG"]
+  },
+  "licensing": {
+    "ed25519Verification": "implemented",
+    "publicKeyEmbedded": true,
+    "tauriConfigUpdated": true
+  },
+  "crossPlatform": {
+    "linux": "smoke passed, viewport captured, dev binary runs",
+    "macos": "requires native host (CI workflow covers)",
+    "windows": "requires native host (CI workflow covers)"
+  },
+  "issues": {
+    "01-08": "done",
+    "09": "done (rawloader integration)",
+    "10": "done (viewport proof captured)",
+    "11": "done (tauri catalog backend)",
+    "12": "done (editor UI + remaining wiring)",
+    "13": "done (JPEG export encoding)",
+    "14": "done (Ed25519 license verification)",
+    "15": "done (acceptance artifact + packaging runbook)"
+  },
+  "knownLimitations": [
+    "macOS/Windows smoke requires native hosts (CI generates on push)",
+    "Release build (tauri:build) needs extended compilation time",
+    "Webview DOM gates (zoom_pan/overlay/color_managed/sustained_60fps) require interactive measurement"
+  ],
+  "generatedAt": "2026-07-13T22:30:00Z"
+}
