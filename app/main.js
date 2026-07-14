@@ -198,8 +198,8 @@ async function measureSustainedFps() {
 
 let selectedImageId = null;
 let currentRecipe = { version: 1, operations: [] };
-let libraryImages = [];
-let cullingMap = {}; // imageId -> { rating, flagged, rejected, colorLabel }
+let libraryImages = []; // updated via photogenic:library-updated event from React
+// cullingMap removed — culling display now owned by React LibraryGrid
 
 // -- DOM helpers ------------------------------------------------------------
 
@@ -211,6 +211,8 @@ function setStatus(text) {
 }
 
 // setBadge removed — top-bar badges now owned by React TopBar component
+// renderLibrary removed — library grid now owned by React LibraryGrid component
+// refreshLibrary removed — library loading now owned by React LibrarySidebar component
 
 // -- Recipe <-> UI sync -----------------------------------------------------
 
@@ -310,29 +312,10 @@ export function controlsFromRecipe(recipe, setValue, setSelect) {
   setValue("straighten", strParams?.angle ?? 0);
 }
 
-// -- Library ----------------------------------------------------------------
+// -- Library (now owned by React LibrarySidebar/LibraryGrid) -----------------
 
-async function refreshLibrary() {
-  if (!bridge.available) {
-    const grid = $("library-grid");
-    if (grid) grid.innerHTML = '<p class="empty-state">Backend disconnected.</p>';
-    return;
-  }
-  try {
-    libraryImages = await bridge.listLibrary();
-    // Load culling metadata
-    try {
-      const culling = await bridge.listCulling();
-      cullingMap = {};
-      for (const c of culling) {
-        cullingMap[c.image_id || c.imageId] = c;
-      }
-    } catch { /* non-fatal */ }
-    renderLibrary();
-  } catch (error) {
-    setStatus(`Library load failed: ${error.message}`);
-  }
-}
+// refreshLibrary removed — React LibrarySidebar manages library state.
+// Other code dispatches "photogenic:refresh-library" to trigger a React refresh.
 
 async function refreshPresetList() {
   const select = $("preset-select");
@@ -353,104 +336,11 @@ async function refreshPresetList() {
   } catch { /* non-fatal */ }
 }
 
-function renderLibrary() {
-  const grid = $("library-grid");
-  if (!grid) return;
-  if (libraryImages.length === 0) {
-    grid.innerHTML = '<p class="empty-state">No images imported yet.</p>';
-    return;
-  }
-  grid.innerHTML = "";
-  for (const img of libraryImages) {
-    const item = document.createElement("div");
-    item.className = "library-item";
-    if (img.image_id === selectedImageId) item.classList.add("selected");
-    item.dataset.imageId = img.image_id;
-
-    const culling = cullingMap[img.image_id] || {};
-    const rating = culling.rating || 0;
-    const flagged = culling.flagged || false;
-    const rejected = culling.rejected || false;
-    const colorLabel = culling.color_label || culling.colorLabel || null;
-
-    // Build star rating
-    let starsHtml = "";
-    for (let i = 1; i <= 5; i++) {
-      starsHtml += `<span class="star ${i <= rating ? "star--on" : ""}" data-rating="${i}">★</span>`;
-    }
-
-    item.innerHTML = `
-      <div class="thumb">${(img.observed_format || "?").toUpperCase().slice(0, 3)}</div>
-      <div class="meta">
-        <div class="name">${img.file_name || img.image_id}</div>
-        <div class="format">${img.observed_format || "unknown"}</div>
-      </div>
-      <div class="culling">
-        <div class="stars" data-action="rating">${starsHtml}</div>
-        <div class="culling-actions">
-          <button class="cull-btn ${flagged ? "cull-btn--active" : ""}" data-action="flag" title="Flag">⚑</button>
-          <button class="cull-btn ${rejected ? "cull-btn--reject" : ""}" data-action="reject" title="Reject">✕</button>
-          ${colorLabel ? `<span class="color-dot color-dot--${colorLabel}"></span>` : ""}
-        </div>
-      </div>
-    `;
-
-    // Image selection
-    item.addEventListener("click", (e) => {
-      // Don't select when clicking culling controls
-      if (e.target.closest(".culling")) return;
-      selectImage(img.image_id);
-    });
-
-    // Star rating
-    item.querySelectorAll(".star").forEach((star) => {
-      star.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const r = parseInt(star.dataset.rating, 10);
-        try {
-          const updated = await bridge.updateCulling(img.image_id, { rating: r });
-          cullingMap[img.image_id] = updated;
-          renderLibrary();
-        } catch (err) {
-          setStatus(`Rating failed: ${err.message}`);
-        }
-      });
-    });
-
-    // Flag toggle
-    item.querySelector('[data-action="flag"]')?.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      try {
-        const updated = await bridge.updateCulling(img.image_id, { flagged: !flagged });
-        cullingMap[img.image_id] = updated;
-        renderLibrary();
-      } catch (err) {
-        setStatus(`Flag failed: ${err.message}`);
-      }
-    });
-
-    // Reject toggle
-    item.querySelector('[data-action="reject"]')?.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      try {
-        const updated = await bridge.updateCulling(img.image_id, { rejected: !rejected });
-        cullingMap[img.image_id] = updated;
-        renderLibrary();
-      } catch (err) {
-        setStatus(`Reject failed: ${err.message}`);
-      }
-    });
-
-    grid.appendChild(item);
-  }
-}
-
 // -- Selection --------------------------------------------------------------
 
 async function selectImage(imageId) {
   selectedImageId = imageId;
   setStatus(`Selected ${imageId}`);
-  renderLibrary();
 
   // Persist workspace state for reopen (criterion 3)
   if (bridge.available) {
@@ -663,6 +553,19 @@ function wireControls() {
 // -- Init -------------------------------------------------------------------
 
 function init() {
+  // React LibrarySidebar dispatches these events — main.js listens for integration
+  document.addEventListener("photogenic:select-image", (e) => {
+    const { imageId, image } = e.detail;
+    if (image) {
+      libraryImages = [image]; // store for preview/export source path lookup
+    }
+    selectImage(imageId);
+  });
+
+  document.addEventListener("photogenic:library-updated", (e) => {
+    libraryImages = e.detail?.images || [];
+  });
+
   if (!bridge.available) {
     setStatus("Tauri backend not available — running in disconnected mode.");
   } else {
@@ -689,7 +592,7 @@ function init() {
       }
     }, 2000);
 
-    refreshLibrary();
+    document.dispatchEvent(new CustomEvent("photogenic:refresh-library"));
     // Restore last workspace state (criterion 3: reopen restores selected image)
     (async () => {
       try {
@@ -706,30 +609,7 @@ function init() {
   }
 
   wireControls();
-  $("btn-import")?.addEventListener("click", async () => {
-    if (!bridge.available) {
-      setStatus("Import requires a connected backend.");
-      return;
-    }
-    // For alpha: prompt for file path (production will use Tauri file dialog)
-    const input = prompt("Enter image file path(s), comma-separated:");
-    if (!input) return;
-    const paths = input.split(",").map((s) => s.trim()).filter(Boolean);
-    if (paths.length === 0) return;
-    try {
-      const result = await bridge.importImages(paths);
-      const n = result.imported?.length ?? 0;
-      const skipped = result.skipped?.length ?? 0;
-      setStatus(
-        n > 0
-          ? `Imported ${n} image(s)${skipped > 0 ? `, skipped ${skipped}` : ""}.`
-          : `Import failed: ${skipped} skipped.`,
-      );
-      await refreshLibrary();
-    } catch (error) {
-      setStatus(`Import failed: ${error.message}`);
-    }
-  });
+  // Import button wiring removed — React LibrarySidebar handles import
   $("btn-save-preset")?.addEventListener("click", async () => {
     if (currentRecipe.operations.length === 0) {
       setStatus("No operations to save as preset.");
@@ -791,7 +671,7 @@ function init() {
     try {
       const result = await bridge.batchSync(selectedImageId, types);
       setStatus(`Batch sync complete: ${result.message} (updated: ${result.updatedCount}, skipped: ${result.skippedCount}).`);
-      refreshLibrary();
+      document.dispatchEvent(new CustomEvent("photogenic:refresh-library"));
     } catch (error) {
       setStatus(`Batch sync failed: ${error.message}`);
     }
