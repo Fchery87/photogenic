@@ -28,11 +28,18 @@
       "publicKey": "e548f635ca1c7c3806f67e2a7261a82faa6aa23dca1218f2ae67ec4f50282b9c",
       "algorithm": "ed25519",
       "description": "Public key for offline license signature verification. The corresponding private key is held by the license issuer."
+    },
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://releases.photogenic.example.com/{{target}}/{{arch}}/{{current_version}}"
+      ]
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

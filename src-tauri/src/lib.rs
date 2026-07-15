@@ -1279,6 +1279,10 @@ pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
     .setup(|app| {
+      #[cfg(desktop)]
+      {
+        let _ = app.handle().plugin(tauri_plugin_updater::Builder::new().build());
+      }
       let data_dir = app
         .path()
         .app_data_dir()
