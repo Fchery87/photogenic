@@ -52,6 +52,22 @@ test("DevelopControl calls onChange with parsed float on input", () => {
   assert.equal(changedValue, 50);
 });
 
+test("DevelopControl slider is accessible via getByLabelText", () => {
+  render(
+    React.createElement(DevelopControl, {
+      id: "exposure", label: "Exposure (EV)",
+      min: -3, max: 3, step: 0.1, value: 0,
+      format: (v) => v.toFixed(1),
+      onChange: () => {},
+    }),
+  );
+  const slider = screen.getByLabelText(/Exposure/);
+  assert.equal(slider.type, "range");
+  assert.equal(slider.min, "-3");
+  assert.equal(slider.max, "3");
+  assert.equal(slider.step, "0.1");
+});
+
 // -- DevelopPanel tests -------------------------------------------------------
 
 test("DevelopPanel renders all 10 simple slider controls with label[for]/id pairs", () => {

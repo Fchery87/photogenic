@@ -42,5 +42,16 @@ test("checkboxes toggle when clicked", () => {
   const temp = screen.getByLabelText(/Temperature/);
   assert.ok(!temp.checked);
   fireEvent.click(temp);
-  // In happy-dom, the React onChange should update the checked state
+});
+
+test("Apply to All button has accessible name via role=button", () => {
+  render(React.createElement(BatchSyncPanel));
+  const btn = screen.getByRole("button", { name: /Apply to All/i });
+  assert.ok(btn);
+});
+
+test("BatchSyncPanel section has accessible heading", () => {
+  render(React.createElement(BatchSyncPanel));
+  const heading = screen.getByRole("heading", { name: /Batch Sync/i });
+  assert.ok(heading);
 });

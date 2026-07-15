@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useCallback } from "react";
 
 export interface LibraryImage {
   imageId: string;
@@ -36,14 +36,48 @@ export function LibraryGrid({
   onReject,
   onSelect,
 }: LibraryGridProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, index: number) => {
+      let newIndex = index;
+      switch (e.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          newIndex = Math.min(index + 1, images.length - 1);
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          newIndex = Math.max(index - 1, 0);
+          break;
+        case "Enter":
+        case " ":
+          onSelect(images[index].imageId);
+          e.preventDefault();
+          return;
+        default:
+          return;
+      }
+      if (newIndex !== index) {
+        e.preventDefault();
+        const cells = gridRef.current?.querySelectorAll("[role=gridcell]");
+        if (cells && cells[newIndex]) {
+          (cells[newIndex] as HTMLElement).focus();
+          onSelect(images[newIndex].imageId);
+        }
+      }
+    },
+    [images, onSelect],
+  );
+
   if (images.length === 0) {
     return React.createElement("p", { className: "empty-state" }, "No images imported yet.");
   }
 
   return React.createElement(
     "div",
-    { className: "library-grid" },
-    images.map((img) => {
+    { className: "library-grid", role: "grid", "aria-label": "Image library", ref: gridRef },
+    images.map((img, idx) => {
       const culling = cullingMap[img.imageId] || {
         imageId: img.imageId,
         rating: 0,
@@ -58,6 +92,11 @@ export function LibraryGrid({
         {
           key: img.imageId,
           className: `library-item${isSelected ? " selected" : ""}`,
+          role: "gridcell",
+          "aria-selected": isSelected,
+          tabIndex: isSelected || (!selectedImageId && img === images[0]) ? 0 : -1,
+          "aria-label": `${img.fileName || img.imageId}, ${culling.rating} stars`,
+          onKeyDown: (e: any) => handleKeyDown(e, idx),
           onClick: (e: any) => {
             if ((e.target as HTMLElement).closest(".culling")) return;
             onSelect(img.imageId);
@@ -97,6 +136,8 @@ export function LibraryGrid({
             React.createElement("button", {
               className: `cull-btn${culling.flagged ? " cull-btn--active" : ""}`,
               title: "Flag",
+              "aria-label": "Flag",
+              "aria-pressed": culling.flagged,
               onClick: (e: any) => {
                 e.stopPropagation();
                 onFlag(img.imageId);
@@ -105,6 +146,8 @@ export function LibraryGrid({
             React.createElement("button", {
               className: `cull-btn${culling.rejected ? " cull-btn--reject" : ""}`,
               title: "Reject",
+              "aria-label": "Reject",
+              "aria-pressed": culling.rejected,
               onClick: (e: any) => {
                 e.stopPropagation();
                 onReject(img.imageId);

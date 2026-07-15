@@ -94,12 +94,13 @@ export function PresetPanel() {
     "div",
     { className: "control-actions" },
     React.createElement("button", { id: "btn-save-preset", className: "btn btn--small", onClick: handleSave }, "Save as Preset"),
-    React.createElement(
-      "select",
-      {
-        id: "preset-select",
-        className: "preset-select",
-        value: selectedPreset,
+      React.createElement(
+        "select",
+        {
+          id: "preset-select",
+          className: "preset-select",
+          "aria-label": "Load Preset",
+          value: selectedPreset,
         onChange: (e: any) => setSelectedPreset(e.target.value),
       },
       React.createElement("option", { value: "" }, "— Load Preset —"),

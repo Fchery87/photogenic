@@ -37,3 +37,15 @@ test("PresetPanel apply dispatches status when no preset selected", () => {
   document.removeEventListener("photogenic:status", handler);
   assert.ok(statusText?.includes("Select a preset"));
 });
+
+test("PresetPanel buttons have accessible names", () => {
+  render(React.createElement(PresetPanel));
+  assert.ok(screen.getByRole("button", { name: /Save as Preset/i }));
+  assert.ok(screen.getByRole("button", { name: /Apply/i }));
+});
+
+test("PresetPanel select has accessible label via aria-label", () => {
+  render(React.createElement(PresetPanel));
+  const select = screen.getByLabelText(/Load Preset/i);
+  assert.equal(select.tagName, "SELECT");
+});
