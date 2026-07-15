@@ -280,7 +280,7 @@ test("bridge calls import_images with correct args", async () => {
 // ---------------------------------------------------------------------------
 
 test("recipeFromControls builds operations from non-zero slider values", async () => {
-  const { recipeFromControls } = await import("../app/main.js");
+  const { recipeFromControls } = await import("../app/src/runtime.js");
 
   const recipe = recipeFromControls((id) => {
     if (id === "exposure") return 0.5;
@@ -297,14 +297,14 @@ test("recipeFromControls builds operations from non-zero slider values", async (
 });
 
 test("recipeFromControls returns empty operations when all sliders are zero", async () => {
-  const { recipeFromControls } = await import("../app/main.js");
+  const { recipeFromControls } = await import("../app/src/runtime.js");
 
   const recipe = recipeFromControls(() => 0, () => 0);
   assert.equal(recipe.operations.length, 0);
 });
 
 test("recipeFromControls maps tone curve midpoint to points array", async () => {
-  const { recipeFromControls } = await import("../app/main.js");
+  const { recipeFromControls } = await import("../app/src/runtime.js");
 
   const recipe = recipeFromControls((id) => {
     if (id === "toneCurve") return 50;
@@ -317,7 +317,7 @@ test("recipeFromControls maps tone curve midpoint to points array", async () => 
 });
 
 test("recipeFromControls maps HSL sliders to red channel operation", async () => {
-  const { recipeFromControls } = await import("../app/main.js");
+  const { recipeFromControls } = await import("../app/src/runtime.js");
 
   const recipe = recipeFromControls((id) => {
     if (id === "hsl-hue") return 15;
@@ -334,7 +334,7 @@ test("recipeFromControls maps HSL sliders to red channel operation", async () =>
 });
 
 test("recipeFromControls maps crop sliders and rotate select", async () => {
-  const { recipeFromControls } = await import("../app/main.js");
+  const { recipeFromControls } = await import("../app/src/runtime.js");
 
   const recipe = recipeFromControls((id) => {
     if (id === "crop-x") return 0.1;
@@ -363,7 +363,7 @@ test("recipeFromControls maps crop sliders and rotate select", async () => {
 });
 
 test("controlsFromRecipe sets slider values from recipe operations", async () => {
-  const { controlsFromRecipe } = await import("../app/main.js");
+  const { controlsFromRecipe } = await import("../app/src/runtime.js");
 
   const values = {};
   const selects = {};
