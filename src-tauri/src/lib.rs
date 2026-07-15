@@ -1289,9 +1289,17 @@ pub fn run() {
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
       std::fs::create_dir_all(&data_dir).ok();
 
-      // Install panic hook that writes to a local crash file (opt-in telemetry scaffold)
+      // Install panic hook that writes to a local crash file only when consent is enabled
       let crash_dir = data_dir.clone();
       std::panic::set_hook(Box::new(move |info| {
+        // Check consent before writing — telemetry is opt-in only (ADR-0009)
+        let consent_path = crash_dir.join("telemetry-consent.json");
+        let consent_enabled = std::fs::read_to_string(&consent_path)
+          .ok()
+          .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+          .and_then(|v| v.get("enabled").and_then(|e| e.as_bool()))
+          .unwrap_or(false);
+
         let payload = info.payload();
         let msg = if let Some(s) = payload.downcast_ref::<&str>() {
           *s
@@ -1304,22 +1312,27 @@ pub fn run() {
           .location()
           .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
           .unwrap_or_default();
-        let entry = format!(
-          r#"{{"timestamp":{},"message":"{}","location":"{}"}}"#,
-          std::time::SystemTime::now()
+
+        eprintln!("panic: {} at {}", msg, location);
+
+        if !consent_enabled {
+          return;
+        }
+
+        let entry = serde_json::json!({
+          "timestamp": std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0),
-          msg.replace('"', "\\\""),
-          location.replace('"', "\\\"")
-        );
+          "message": msg,
+          "location": location,
+        });
         let crash_path = crash_dir.join("native-crash.log");
         let _ = std::fs::OpenOptions::new()
           .create(true)
           .append(true)
           .open(&crash_path)
           .and_then(|mut f| std::io::Write::write_all(&mut f, format!("{}\n", entry).as_bytes()));
-        eprintln!("panic: {} at {}", msg, location);
       }));
 
       let db_path = data_dir.join("photogenic-catalog.sqlite");

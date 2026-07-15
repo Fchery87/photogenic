@@ -24,12 +24,17 @@ test("updater:default permission is in capabilities", () => {
   assert.ok(cap.permissions.includes("updater:default"));
 });
 
-test("updater pubkey is a placeholder for internal alpha — replace before release", () => {
+test("updater pubkey and endpoints are documented placeholders for internal alpha", () => {
   const conf = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf-8"));
   const pubkey = conf.plugins.updater.pubkey;
-  if (!pubkey || pubkey.length < 100) {
-    // This is expected for internal alpha — the test documents it explicitly
-    // rather than silently passing as if a real key is configured
-    console.log("  [INFO] updater pubkey is empty/placeholder — replace before production release");
-  }
+  const endpoints = conf.plugins.updater.endpoints;
+
+  // Pubkey must be empty for alpha — a real key would be 100+ chars
+  assert.equal(pubkey, "", "pubkey must be empty placeholder for internal alpha (replace before release)");
+
+  // Endpoint must contain the placeholder domain
+  assert.ok(
+    endpoints.some((url) => url.includes("example.com")),
+    "endpoints must use example.com placeholder domain (replace before release)",
+  );
 });

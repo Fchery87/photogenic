@@ -1,5 +1,5 @@
 import { readFile, writeFile, appendFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 
 const CONSENT_VERSION = 1;
 
@@ -57,8 +57,4 @@ export function createTelemetryConsentStore(consentPath) {
       await appendFile(crashLogPath, JSON.stringify(entry) + "\n", "utf-8");
     },
   };
-}
-
-function join(...parts) {
-  return parts.join("/");
 }
