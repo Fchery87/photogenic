@@ -1288,6 +1288,40 @@ pub fn run() {
         .app_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
       std::fs::create_dir_all(&data_dir).ok();
+
+      // Install panic hook that writes to a local crash file (opt-in telemetry scaffold)
+      let crash_dir = data_dir.clone();
+      std::panic::set_hook(Box::new(move |info| {
+        let payload = info.payload();
+        let msg = if let Some(s) = payload.downcast_ref::<&str>() {
+          *s
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+          s.as_str()
+        } else {
+          "unknown panic"
+        };
+        let location = info
+          .location()
+          .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+          .unwrap_or_default();
+        let entry = format!(
+          r#"{{"timestamp":{},"message":"{}","location":"{}"}}"#,
+          std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+          msg.replace('"', "\\\""),
+          location.replace('"', "\\\"")
+        );
+        let crash_path = crash_dir.join("native-crash.log");
+        let _ = std::fs::OpenOptions::new()
+          .create(true)
+          .append(true)
+          .open(&crash_path)
+          .and_then(|mut f| std::io::Write::write_all(&mut f, format!("{}\n", entry).as_bytes()));
+        eprintln!("panic: {} at {}", msg, location);
+      }));
+
       let db_path = data_dir.join("photogenic-catalog.sqlite");
       let store = catalog::SqliteCatalogStore::open(&db_path)
         .map_err(|e| format!("failed to open catalog database at {}: {}", db_path.display(), e))?;

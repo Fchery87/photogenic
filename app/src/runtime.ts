@@ -298,4 +298,9 @@ export function init() {
   if (typeof window !== "undefined") {
     (window as any).__collectViewportProof = collectViewportProof;
   }
+
+  document.addEventListener("photogenic:crash", (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    console.error("[photogenic:crash]", detail?.message, detail?.stack);
+  });
 }
