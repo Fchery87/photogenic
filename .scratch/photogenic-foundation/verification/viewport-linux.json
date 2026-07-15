@@ -1,5 +1,5 @@
 {
-  "collectedAt": "2026-07-14T04:39:14Z",
+  "collectedAt": "2026-07-15T20:14:23.522Z",
   "fallbackActivated": false,
   "gradientOnly": false,
   "measuredGateFailures": [],
@@ -14,10 +14,11 @@
   "platform": "linux",
   "provisional": false,
   "reason": "All viewport gates passed. Shell decision may be locked (ADR-0004).",
+  "remainingGates": [],
   "results": [
     {
       "id": "gradient",
-      "note": "Tauri shell bridge connected; native Pipeline frame provenance is available.",
+      "note": "Tauri shell bridge connected and native Pipeline frame provenance is available for the viewport proof harness.",
       "passed": true
     },
     {
@@ -29,66 +30,60 @@
         "frameHeight": 2,
         "frameWidth": 2,
         "green": 102,
+        "physicalHeight": 600,
+        "physicalWidth": 800,
         "recipeFingerprint": "bafd6bd2c594c2f3f4253bb3061f137a573c2a470b39a4972c195fc69a82f17b",
         "red": 51,
         "renderDurationMs": 0,
+        "scaleFactor": 1,
         "sourceFileId": "viewport-proof-native-frame",
         "transferMethod": "cpu-linear-float32"
       },
-      "note": "Native Pipeline frame for viewport-proof-native-frame at 2x2 by cpu-linear-float32 (hash a372adee817c761286363f7f715493c68a5801b759308392c6954016bf689c8c). 0ms.",
+      "note": "Native Pipeline frame rendered for viewport-proof-native-frame at 2x2 and transferred by cpu-linear-float32 (hash a372adee817c761286363f7f715493c68a5801b759308392c6954016bf689c8c). Webview window measured at 800x600 physical px with 1.00 scale factor.",
       "passed": true
     },
     {
       "id": "zoom_pan",
       "measured": true,
-      "note": "Webview DOM contains editor UI with canvas for frame display and zoom/pan interaction.",
+      "metrics": {
+        "frameHeight": 2,
+        "frameWidth": 2
+      },
+      "note": "Webview DOM contains a canvas.",
       "passed": true
     },
     {
       "id": "overlay",
       "measured": true,
-      "note": "Webview renders UI overlays composited over native frames.",
+      "metrics": {
+        "frameHeight": 2,
+        "frameWidth": 2
+      },
+      "note": "Overlay present.",
       "passed": true
     },
     {
       "id": "color_managed",
       "measured": true,
       "metrics": {
-        "alpha": 255,
         "blue": 153,
-        "frameHash": "a372adee817c761286363f7f715493c68a5801b759308392c6954016bf689c8c",
-        "frameHeight": 2,
-        "frameWidth": 2,
         "green": 102,
-        "recipeFingerprint": "bafd6bd2c594c2f3f4253bb3061f137a573c2a470b39a4972c195fc69a82f17b",
-        "red": 51,
-        "renderDurationMs": 0,
-        "sourceFileId": "viewport-proof-native-frame",
-        "transferMethod": "cpu-linear-float32"
+        "red": 51
       },
-      "note": "Native Pipeline outputs real color values: R=51, G=102, B=153.",
+      "note": "Color sample: R=51 G=102 B=153.",
       "passed": true
     },
     {
-      "fps": 60.0,
+      "fps": 61,
       "id": "sustained_60fps",
       "measured": true,
       "metrics": {
         "durationMs": 1000,
-        "frameCount": 60
+        "frameCount": 61
       },
-      "note": "Tauri webview renders at 60 fps (standard WebKitGTK 4.1 behavior). The GPU→webview compositing path has been verified through the native frame pipeline.",
+      "note": "Measured 61 fps over 61 frames.",
       "passed": true
     }
   ],
-  "shell": "tauri-native",
-  "shellDecisionUnlocked": true,
-  "webkitgtkVersion": "4.1",
-  "webview": {
-    "available": true,
-    "physicalHeight": 600,
-    "physicalWidth": 800,
-    "scaleFactor": 1.0,
-    "title": "photogenic"
-  }
+  "shellDecisionUnlocked": true
 }
