@@ -76,8 +76,11 @@ export function LibraryGrid({
 
   return React.createElement(
     "div",
-    { className: "library-grid", role: "grid", "aria-label": "Image library", ref: gridRef },
-    images.map((img, idx) => {
+    { className: "library-grid", role: "grid", "aria-label": "Image library", "aria-rowcount": images.length, ref: gridRef },
+    React.createElement(
+      "div",
+      { role: "row" },
+      images.map((img, idx) => {
       const culling = cullingMap[img.imageId] || {
         imageId: img.imageId,
         rating: 0,
@@ -160,5 +163,6 @@ export function LibraryGrid({
         ),
       );
     }),
+    ),
   );
 }
