@@ -25,7 +25,7 @@ tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 sha2 = "0.10.9"
 ryu-js = "1.0.2"
-wgpu = "24.0.5"
+wgpu = "30.0.0"
 pollster = "0.4.0"
 bytemuck = "1.25.0"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
