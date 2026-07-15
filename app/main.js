@@ -529,6 +529,11 @@ function init() {
     })();
   }
 
+  // React components dispatch photogenic:status to update the status bar
+  document.addEventListener("photogenic:status", (e) => {
+    if (e.detail?.text) setStatus(e.detail.text);
+  });
+
   // React DevelopPanel dispatches recipe-changed — save + schedule preview
   document.addEventListener("photogenic:recipe-changed", (e) => {
     currentRecipe = e.detail?.recipe || currentRecipe;
@@ -585,25 +590,7 @@ function init() {
       setStatus(`Preset rejected: ${error.message}`);
     }
   });
-  $("btn-batch-sync")?.addEventListener("click", async () => {
-    if (!selectedImageId) {
-      setStatus("Select a source image first.");
-      return;
-    }
-    const types = [...document.querySelectorAll(".sync-type:checked")].map((el) => el.value);
-    if (types.length === 0) {
-      setStatus("Select at least one operation type to sync.");
-      return;
-    }
-    setStatus(`Batch syncing [${types.join(", ")}]...`);
-    try {
-      const result = await bridge.batchSync(selectedImageId, types);
-      setStatus(`Batch sync complete: ${result.message} (updated: ${result.updatedCount}, skipped: ${result.skippedCount}).`);
-      document.dispatchEvent(new CustomEvent("photogenic:refresh-library"));
-    } catch (error) {
-      setStatus(`Batch sync failed: ${error.message}`);
-    }
-  });
+  // Batch sync button wiring removed — React BatchSyncPanel handles it
   $("btn-export")?.addEventListener("click", async () => {
     if (!selectedImageId) {
       setStatus("Select an image to export.");

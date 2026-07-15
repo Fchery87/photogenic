@@ -4,6 +4,7 @@ import { App } from "./App.js";
 import { LibrarySidebar } from "./components/LibrarySidebar.js";
 import { PreviewArea } from "./components/PreviewArea.js";
 import { DevelopPanel } from "./components/DevelopPanel.js";
+import { BatchSyncPanel } from "./components/BatchSyncPanel.js";
 
 const topBarRoot = document.getElementById("react-root");
 if (topBarRoot) {
@@ -23,4 +24,9 @@ if (previewRoot) {
 const developRoot = document.getElementById("react-develop");
 if (developRoot) {
   createRoot(developRoot).render(React.createElement(DevelopPanel));
+}
+
+const batchRoot = document.getElementById("react-batch");
+if (batchRoot) {
+  createRoot(batchRoot).render(React.createElement(BatchSyncPanel));
 }
