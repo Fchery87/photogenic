@@ -312,25 +312,13 @@ async function selectImage(imageId) {
     const entry = await bridge.getRecipe(imageId);
     if (entry) {
       currentRecipe = entry.recipe;
-      controlsFromRecipe(currentRecipe, (id, val) => {
-        const input = $(`ctrl-${id}`);
-        if (input) input.value = val;
-      }, (id, val) => {
-        const sel = $(`ctrl-${id}`);
-        if (sel) sel.value = val;
-      });
       const revEl = $("recipe-revision");
       if (revEl) revEl.textContent = `r${entry.revision}`;
     } else {
       currentRecipe = { version: 1, operations: [] };
-      controlsFromRecipe(currentRecipe, (id, val) => {
-        const input = $(`ctrl-${id}`);
-        if (input) input.value = val;
-      }, (id, val) => {
-        const sel = $(`ctrl-${id}`);
-        if (sel) sel.value = val;
-      });
     }
+    // Tell React DevelopPanel to sync its controls
+    document.dispatchEvent(new CustomEvent("photogenic:recipe-loaded", { detail: { recipe: currentRecipe } }));
   } catch (error) {
     setStatus(`Recipe load failed: ${error.message}`);
   }
@@ -366,11 +354,8 @@ async function renderPreview() {
     return;
   }
 
-  // Build the current recipe from controls
-  const recipe = recipeFromControls(
-    (id) => parseFloat($(`ctrl-${id}`)?.value ?? "0"),
-    (id) => $(`ctrl-${id}`)?.value ?? "0",
-  );
+  // Use currentRecipe (kept in sync by React DevelopPanel via photogenic:recipe-changed)
+  const recipe = currentRecipe;
 
   // Supersede any in-flight request
   const requestId = Symbol("preview");
@@ -446,10 +431,6 @@ async function renderPreview() {
 
 async function saveCurrentRecipe() {
   if (!selectedImageId || !bridge.available) return;
-  currentRecipe = recipeFromControls(
-    (id) => parseFloat($(`ctrl-${id}`)?.value ?? "0"),
-    (id) => $(`ctrl-${id}`)?.value ?? "0",
-  );
   try {
     const result = await bridge.saveRecipe(selectedImageId, currentRecipe);
     const revEl = $("recipe-revision");
@@ -480,24 +461,9 @@ export function queueExportJob(imageId, format, quality) {
 
 // -- Wire up event listeners -------------------------------------------------
 
-function wireControls() {
-  for (const ctrl of [...CONTROL_MAP, ...SPECIAL_LABELS]) {
-    const input = $(`ctrl-${ctrl.id}`);
-    const label = $(ctrl.label);
-    if (!input || !label) continue;
-    input.addEventListener("input", () => {
-      label.textContent = ctrl.format(parseFloat(input.value));
-    });
-    input.addEventListener("change", () => { saveCurrentRecipe(); schedulePreviewRender(); });
-  }
-  // Wire rotate select
-  const rot = $("ctrl-rotate");
-  if (rot) rot.addEventListener("change", () => saveCurrentRecipe());
-  // Wire crop sliders
-  for (const cid of ["crop-x", "crop-y", "crop-w", "crop-h"]) {
-    const el = $(`ctrl-${cid}`);
-    if (el) el.addEventListener("change", () => saveCurrentRecipe());
-  }
+function wireRemainingControls() {
+  // Develop controls are now owned by React DevelopPanel.
+  // Only wire the export quality slider (export panel not yet migrated).
   const q = $("export-quality");
   const ql = $("val-quality");
   if (q && ql) {
@@ -563,7 +529,14 @@ function init() {
     })();
   }
 
-  wireControls();
+  // React DevelopPanel dispatches recipe-changed — save + schedule preview
+  document.addEventListener("photogenic:recipe-changed", (e) => {
+    currentRecipe = e.detail?.recipe || currentRecipe;
+    saveCurrentRecipe();
+    schedulePreviewRender();
+  });
+
+  wireRemainingControls();
   // Import button wiring removed — React LibrarySidebar handles import
   $("btn-save-preset")?.addEventListener("click", async () => {
     if (currentRecipe.operations.length === 0) {

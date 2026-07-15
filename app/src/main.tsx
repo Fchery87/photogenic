@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import { LibrarySidebar } from "./components/LibrarySidebar.js";
 import { PreviewArea } from "./components/PreviewArea.js";
+import { DevelopPanel } from "./components/DevelopPanel.js";
 
 const topBarRoot = document.getElementById("react-root");
 if (topBarRoot) {
@@ -17,4 +18,9 @@ if (libraryRoot) {
 const previewRoot = document.getElementById("react-preview");
 if (previewRoot) {
   createRoot(previewRoot).render(React.createElement(PreviewArea, { hasSelection: false }));
+}
+
+const developRoot = document.getElementById("react-develop");
+if (developRoot) {
+  createRoot(developRoot).render(React.createElement(DevelopPanel));
 }
