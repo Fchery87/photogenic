@@ -1277,7 +1277,13 @@ pub fn run() {
     .expect("failed to export tauri-specta bindings");
 
   tauri::Builder::default()
-    .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
+    .plugin(
+      tauri_plugin_log::Builder::default()
+        .level(log::LevelFilter::Info)
+        .level_for("wgpu_hal", log::LevelFilter::Warn)
+        .level_for("wgpu_core", log::LevelFilter::Warn)
+        .build(),
+    )
     .setup(|app| {
       #[cfg(desktop)]
       {

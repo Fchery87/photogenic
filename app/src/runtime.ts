@@ -264,9 +264,20 @@ export function init() {
     schedulePreviewRender();
   });
 
-  if (!bridge.available) {
-    setStatus("Tauri backend not available — running in disconnected mode.");
-  } else {
+  // Check bridge availability with retry — __TAURI_INTERNALS__ may not be ready immediately in dev
+  const checkBridge = (retries: number) => {
+    if (bridge.available) {
+      runWithBridge();
+      return;
+    }
+    if (retries > 0) {
+      setTimeout(() => checkBridge(retries - 1), 500);
+    } else {
+      setStatus("Tauri backend not available — running in disconnected mode.");
+    }
+  };
+
+  const runWithBridge = () => {
     setTimeout(async () => {
       try {
         const proof = await collectViewportProof();
@@ -294,6 +305,8 @@ export function init() {
       } catch { /* non-fatal */ }
     })();
   }
+
+  checkBridge(10);
 
   if (typeof window !== "undefined") {
     (window as any).__collectViewportProof = collectViewportProof;
