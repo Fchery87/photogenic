@@ -272,24 +272,7 @@ export function controlsFromRecipe(recipe, setValue, setSelect) {
 // refreshLibrary removed — React LibrarySidebar manages library state.
 // Other code dispatches "photogenic:refresh-library" to trigger a React refresh.
 
-async function refreshPresetList() {
-  const select = $("preset-select");
-  const applyBtn = $("btn-apply-preset");
-  if (!select) return;
-  if (!bridge.available) return;
-  try {
-    const presets = await bridge.listPresets();
-    select.innerHTML = '<option value="">— Load Preset —</option>';
-    for (const p of presets) {
-      const opt = document.createElement("option");
-      opt.value = p.preset_id || p.presetId;
-      opt.textContent = p.name;
-      select.appendChild(opt);
-    }
-    select.disabled = false;
-    if (applyBtn) applyBtn.disabled = false;
-  } catch { /* non-fatal */ }
-}
+// refreshPresetList removed — React PresetPanel manages its own preset list.
 
 // -- Selection --------------------------------------------------------------
 
@@ -461,15 +444,7 @@ export function queueExportJob(imageId, format, quality) {
 
 // -- Wire up event listeners -------------------------------------------------
 
-function wireRemainingControls() {
-  // Develop controls are now owned by React DevelopPanel.
-  // Only wire the export quality slider (export panel not yet migrated).
-  const q = $("export-quality");
-  const ql = $("val-quality");
-  if (q && ql) {
-    q.addEventListener("input", () => { ql.textContent = q.value; });
-  }
-}
+// wireRemainingControls removed — all UI wiring now owned by React components.
 
 // -- Init -------------------------------------------------------------------
 
@@ -541,131 +516,7 @@ function init() {
     schedulePreviewRender();
   });
 
-  wireRemainingControls();
-  // Import button wiring removed — React LibrarySidebar handles import
-  $("btn-save-preset")?.addEventListener("click", async () => {
-    if (currentRecipe.operations.length === 0) {
-      setStatus("No operations to save as preset.");
-      return;
-    }
-    const name = prompt("Preset name:", "Custom Preset");
-    if (!name) return;
-    const presetId = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `preset-${Date.now()}`;
-    try {
-      await bridge.savePreset(presetId, name, currentRecipe);
-      setStatus(`Saved preset '${name}'.`);
-      await refreshPresetList();
-    } catch (error) {
-      setStatus(`Preset save failed: ${error.message}`);
-    }
-  });
-  // Load preset list when backend is available
-  if (bridge.available) refreshPresetList();
-  // Criterion 7: Apply preset with validation; invalid presets are rejected
-  $("btn-apply-preset")?.addEventListener("click", async () => {
-    const presetId = $("preset-select")?.value;
-    if (!presetId) {
-      setStatus("Select a preset to apply.");
-      return;
-    }
-    if (!selectedImageId) {
-      setStatus("Select an image before applying a preset.");
-      return;
-    }
-    try {
-      const result = await bridge.applyPreset(presetId, selectedImageId);
-      currentRecipe = result.recipe;
-      controlsFromRecipe(currentRecipe, (id, val) => {
-        const input = $(`ctrl-${id}`);
-        if (input) input.value = val;
-      }, (id, val) => {
-        const sel = $(`ctrl-${id}`);
-        if (sel) sel.value = val;
-      });
-      const revEl = $("recipe-revision");
-      if (revEl) revEl.textContent = `r${result.revision}`;
-      setStatus(`Applied preset '${result.appliedFromPreset}' to ${selectedImageId}.`);
-    } catch (error) {
-      // Criterion 7: Invalid preset operations are rejected with user-visible message
-      setStatus(`Preset rejected: ${error.message}`);
-    }
-  });
-  // Batch sync button wiring removed — React BatchSyncPanel handles it
-  $("btn-export")?.addEventListener("click", async () => {
-    if (!selectedImageId) {
-      setStatus("Select an image to export.");
-      return;
-    }
-    // Criterion 9: Export must not bypass licensing
-    if (bridge.available) {
-      try {
-        const license = await bridge.checkLicense();
-        if (!license.activated) {
-          setStatus(`Export blocked: ${license.reason}`);
-          return;
-        }
-      } catch (error) {
-        setStatus(`License check failed: ${error.message}`);
-        return;
-      }
-    }
-    const format = $("export-format")?.value || "png";
-    const quality = parseInt($("export-quality")?.value ?? "92", 10);
-    const job = queueExportJob(selectedImageId, format, quality);
-    setStatus(`Queued ${format.toUpperCase()} export for ${selectedImageId}.`);
-    const list = $("export-jobs");
-    if (list) {
-      const el = document.createElement("div");
-      el.className = "job-item";
-      el.dataset.jobId = job.id;
-      el.innerHTML = `<span>${job.id}: ${format.toUpperCase()}</span><span class="status--${job.status}">${job.status}</span>`;
-      list.appendChild(el);
-    }
-
-    // Execute export through the pipeline when bridge is available
-    if (bridge.available) {
-      const img = libraryImages.find((i) => i.image_id === selectedImageId);
-      const sourcePath = img?.source_path || img?.sourcePath;
-      if (!sourcePath) {
-        job.status = "failed";
-        setStatus("Export failed: no source path for selected image.");
-        return;
-      }
-      // Derive output path and extension from source and format
-      const dotIdx = sourcePath.lastIndexOf(".");
-      const baseName = dotIdx > 0 ? sourcePath.slice(0, dotIdx) : sourcePath;
-      const ext = format === "tiff-16" || format === "tiff-8" ? ".tiff"
-        : format === "jpeg" || format === "jpg" ? ".jpg"
-        : ".png";
-      const outputPath = `${baseName}-edited-${job.id}${ext}`;
-      try {
-        const result = await bridge.exportImage(
-          selectedImageId,
-          sourcePath,
-          currentRecipe,
-          outputPath,
-          format,
-          quality,
-        );
-        job.status = "done";
-        setStatus(
-          `Exported ${result.width}x${result.height} ${result.format.toUpperCase()} (${result.fileSizeBytes} bytes) → ${result.outputPath}`,
-        );
-      } catch (error) {
-        job.status = "failed";
-        setStatus(`Export failed: ${error.message}`);
-      }
-      // Update job item in UI
-      const jobEl = list?.querySelector(`[data-job-id="${job.id}"]`);
-      if (jobEl) {
-        const statusEl = jobEl.querySelector(`[class^="status--"]`);
-        if (statusEl) {
-          statusEl.className = `status--${job.status}`;
-          statusEl.textContent = job.status;
-        }
-      }
-    }
-  });
+  // All remaining UI wiring (preset, export) now owned by React components.
 }
 
 if (typeof document !== "undefined") {

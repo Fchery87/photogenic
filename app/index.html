@@ -28,39 +28,14 @@
           <section class="panel" id="develop-panel">
             <h2>Develop</h2>
             <div id="react-develop"></div>
-            <div class="control-actions">
-              <button id="btn-save-preset" class="btn btn--small">Save as Preset</button>
-              <select id="preset-select" class="preset-select" disabled>
-                <option value="">— Load Preset —</option>
-              </select>
-              <button id="btn-apply-preset" class="btn btn--small" disabled>Apply</button>
-              <span id="recipe-revision" class="revision-display"></span>
-            </div>
+            <div id="react-preset"></div>
           </section>
 
           <!-- Batch Sync -->
           <div id="react-batch"></div>
 
-          <!-- Export panel -->
-          <section class="panel" id="export-panel">
-            <h2>Export</h2>
-            <div class="control-group">
-              <label>Format</label>
-              <select id="export-format">
-                <option value="png">PNG (8-bit)</option>
-                <option value="jpeg">JPEG</option>
-                <option value="tiff-8">TIFF (8-bit)</option>
-                <option value="tiff-16">TIFF (16-bit)</option>
-              </select>
-            </div>
-            <div class="control-group">
-              <label>Quality</label>
-              <input type="range" id="export-quality" min="1" max="100" step="1" value="92" />
-              <span class="value-display" id="val-quality">92</span>
-            </div>
-            <button id="btn-export" class="btn btn--primary">Queue Export</button>
-            <div id="export-jobs" class="job-list"></div>
-          </section>
+          <!-- Export -->
+          <div id="react-export"></div>
         </aside>
       </div>
 
